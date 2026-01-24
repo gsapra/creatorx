@@ -21,10 +21,11 @@ class CreatorToolsService:
     ) -> str:
         """Generate video script"""
         
-        system_prompt = """You are an expert scriptwriter for digital content creators.
-You create engaging, well-paced video scripts that are designed to be spoken naturally.
-You understand video storytelling, audience retention techniques, and production requirements.
-Your scripts are actionable, specific, and ready for recording without modification."""
+        system_prompt = """You are an EXPERT scriptwriter for digital content creators.
+You create ENGAGING, WELL-PACED video scripts designed to be SPOKEN NATURALLY.
+You DEEPLY understand video storytelling, audience retention, and production requirements.
+You ALWAYS write COMPLETE, WORD-FOR-WORD scripts - NEVER outlines or summaries.
+Your scripts are ACTIONABLE, SPECIFIC, and READY FOR RECORDING without modification."""
         
         # Calculate timing breakdown
         total_seconds = request.duration_minutes * 60
@@ -35,7 +36,7 @@ Your scripts are actionable, specific, and ready for recording without modificat
         # Determine script flow structure
         flow_structure = request.script_flow or "Hook → Introduction → Main Content → Conclusion → Call-to-Action"
         
-        # Build persona context string
+        # Build persona context string (only if persona exists)
         persona_context = ""
         if persona:
             if persona.get('type') == 'audience':
@@ -60,93 +61,148 @@ SCRIPT STYLE GUIDELINES (apply these characteristics throughout):
 - Vocabulary Level: {persona.get('vocabulary_level', 'accessible')}
 """
         
-        # Build key points section
+        # Build key points section (only if provided)
         key_points_section = ""
         if request.key_points and len(request.key_points) > 0:
-            key_points_section = "\nKEY POINTS TO COVER (incorporate these naturally into the script flow):\n"
+            key_points_section = "\n=== MANDATORY KEY POINTS ===\nYOU MUST INCORPORATE ALL OF THESE POINTS NATURALLY INTO THE SCRIPT:\n"
             for i, point in enumerate(request.key_points, 1):
                 key_points_section += f"{i}. {point}\n"
         
-        # Build comprehensive prompt
-        prompt = f"""
-GENERATE A VIDEO SCRIPT
+        # Build target audience section (only if provided)
+        audience_section = ""
+        if request.target_audience:
+            audience_section = f"\nTarget Audience: {request.target_audience} (Tailor language, examples, and complexity for THIS specific audience)"
+        
+        # Build tone section (only if provided and no persona)
+        tone_section = ""
+        if request.tone and not persona:
+            tone_section = f"\nTone: {request.tone} (Maintain this tone CONSISTENTLY throughout)"
+        
+        # Build style section (only if provided)
+        style_section = ""
+        if request.style:
+            style_section = f"\nContent Style: {request.style} (Structure and deliver content in this format)"
+        
+        # Handle regeneration with emphasized feedback
+        regeneration_section = ""
+        if request.regenerate_feedback:
+            # Extract the actual feedback (remove the prefix if it exists)
+            actual_feedback = request.regenerate_feedback.replace('IMPORTANT USER FEEDBACK - MUST FOLLOW: ', '')
+            
+            regeneration_section = f"""
+{'='*60}
+🚨🚨🚨 CRITICAL REGENERATION INSTRUCTIONS 🚨🚨🚨
+{'='*60}
 
-=== VIDEO DETAILS ===
+THIS IS A REFINEMENT REQUEST. THE USER PROVIDED SPECIFIC FEEDBACK THAT YOU **MUST** FOLLOW.
+
+USER'S FEEDBACK:
+\"\"\"{actual_feedback}\"\"\"
+
+⚠️  READ THE FEEDBACK ABOVE CAREFULLY AND IMPLEMENT IT EXACTLY ⚠️
+
+This is NOT optional. The user wants SPECIFIC CHANGES based on their feedback.
+DO NOT produce the same script. DO NOT ignore the feedback. APPLY IT COMPLETELY.
+
+"""
+            if request.previous_script:
+                # Show a snippet of the previous script for context
+                script_preview = request.previous_script[:800] if len(request.previous_script) > 800 else request.previous_script
+                regeneration_section += f"""
+=== PREVIOUS VERSION (for context) ===
+{script_preview}{'...' if len(request.previous_script) > 800 else ''}
+
+The user wants you to IMPROVE this based on the feedback above.
+Keep what works, but CHANGE what the user asked you to change.
+
+"""
+        
+        # Build comprehensive prompt with ONLY provided fields
+        prompt = f"""
+{'='*60}
+🎬 VIDEO SCRIPT GENERATION REQUEST
+{'='*60}
+
+📌 CORE REQUIREMENTS:
 Topic: {request.topic}
-Duration: {request.duration_minutes} minutes ({total_seconds} seconds total)
-Target Audience: {request.target_audience or 'General audience'}
-Tone: {request.tone}
-Style: {request.style or 'Educational/Engaging'}
+Duration: {request.duration_minutes} minutes ({total_seconds} seconds total){audience_section}{tone_section}{style_section}
 Flow Structure: {flow_structure}
 {persona_context}{key_points_section}
-
-=== TIMING BREAKDOWN ===
+{regeneration_section}
+{'='*60}
+⏱️ TIMING BREAKDOWN
+{'='*60}
 • Hook: 0:00 - 0:{int(hook_seconds):02d} ({int(hook_seconds)} seconds)
 • Main Content: 0:{int(hook_seconds):02d} - {int((total_seconds - outro_seconds) // 60)}:{int((total_seconds - outro_seconds) % 60):02d} ({int(content_seconds)} seconds)
 • Outro/CTA: {int((total_seconds - outro_seconds) // 60)}:{int((total_seconds - outro_seconds) % 60):02d} - {request.duration_minutes}:00 ({int(outro_seconds)} seconds)
 
-=== CRITICAL INSTRUCTIONS ===
+{'='*60}
+🎯 CRITICAL INSTRUCTIONS (MUST FOLLOW)
+{'='*60}
 
-1. WRITE AN ACTUAL SCRIPT - Do NOT just list the structure or outline.
-2. USE THE INPUTS AS GUIDANCE - The topic, audience, key points, flow, and style should SHAPE how you write the script, not be repeated as metadata.
-3. WRITE WORD-FOR-WORD DIALOGUE - Every word should be ready to be spoken by the creator on camera.
-4. MATCH THE SPECIFIED DURATION - Aim for approximately {request.duration_minutes * 150} words (150 words per minute speaking rate).
-5. NATURAL LANGUAGE - Write conversationally, as the creator would actually speak. Use contractions, questions, and direct address.
-6. INCORPORATE KEY POINTS SEAMLESSLY - Don't just list them; weave them naturally into the narrative.
-7. FOLLOW THE FLOW - Structure your script according to the specified flow: {flow_structure}
-8. MATCH THE TONE & STYLE - Write in a {request.tone} tone with a {request.style or 'engaging'} style throughout.
+1. ✅ WRITE THE COMPLETE SCRIPT - Not an outline, not a summary, but EVERY WORD to be spoken
+2. ✅ WORD-FOR-WORD DIALOGUE - Write exactly what the creator will say on camera
+3. ✅ MATCH DURATION PRECISELY - Aim for approximately {request.duration_minutes * 150} words (150 words/minute speaking rate)
+4. ✅ NATURAL CONVERSATIONAL FLOW - Write how people ACTUALLY talk (contractions, questions, direct address)
+5. ✅ INCORPORATE ALL KEY POINTS - Weave them seamlessly into the narrative, don't just list them
+6. ✅ FOLLOW THE EXACT FLOW - Structure must match: {flow_structure}
+7. ✅ MAINTAIN CONSISTENT TONE - Keep the specified tone throughout every section
+8. ✅ MAKE IT ENGAGING - Use storytelling techniques, examples, analogies, and emotional hooks
+9. ✅ PRODUCTION-READY - Include timing markers, B-ROLL suggestions, and visual cues
+10. ✅ SPEAK TO THE AUDIENCE - Address them directly, anticipate questions, create connection
 
-=== SCRIPT FORMAT ===
-
-Use this format:
+{'='*60}
+📝 REQUIRED SCRIPT FORMAT
+{'='*60}
 
 [HOOK - 0:00-0:{int(hook_seconds):02d}]
-[Write the attention-grabbing opening. Make it compelling and relevant to {request.target_audience or 'the audience'}. Use the {request.tone} tone.]
+Write a POWERFUL attention-grabbing opening. Make viewers WANT to keep watching.
+Use pattern interrupts, curiosity gaps, or bold statements.
 
 [INTRODUCTION - 0:{int(hook_seconds):02d}-...]
-[Introduce yourself if needed, preview what's coming, and establish credibility.]
-[B-ROLL: Suggest relevant visual here if needed]
+Quick intro, preview value, establish credibility. Keep it brief but impactful.
+[B-ROLL: Suggest relevant visual]
 
-[MAIN CONTENT]
-[Organize into clear sections based on the flow: {flow_structure}]
-[Each section should have:
- - Clear transitions
- - Specific examples and details
- - Natural pacing breaks
- - Visual suggestions where relevant]
+[MAIN CONTENT - Organized by flow: {flow_structure}]
 
-[Section 1: ...]
-[Full dialogue here...]
-[TEXT ON SCREEN: Key statistic or phrase]
-
-[Section 2: ...]
-[Full dialogue here...]
+[Section 1: First Major Point]
+Full dialogue with natural transitions, examples, and details...
+[TEXT ON SCREEN: Key phrase or statistic]
 [B-ROLL: Relevant visual suggestion]
 
-[Continue with more sections as needed to cover all key points...]
+[Section 2: Second Major Point]  
+Full dialogue with smooth transitions...
+[PAUSE for emphasis]
+
+[Continue with clear sections covering ALL key points...]
 
 [CONCLUSION - {int((total_seconds - outro_seconds) // 60)}:{int((total_seconds - outro_seconds) % 60):02d}-...]
-[Summarize key takeaways, reinforce the main message.]
+Powerful summary reinforcing main message and value delivered.
 
-[OUTRO/CALL-TO-ACTION - ...]
-[Strong call-to-action aligned with creator's goals, encourage engagement.]
+[OUTRO/CALL-TO-ACTION]
+Strong, specific CTA. Tell viewers EXACTLY what to do next.
 
-=== PRODUCTION NOTES ===
-- Mark timing transitions clearly
-- Suggest B-ROLL visuals where they enhance storytelling
-- Note TEXT ON SCREEN for important statistics, quotes, or emphasis
-- Include pause markers [PAUSE] where natural dramatic pauses work
-- Suggest GRAPHICS or ANIMATIONS where helpful
-- Keep paragraphs short for teleprompter readability
+{'='*60}
+🎨 PRODUCTION ENHANCEMENTS
+{'='*60}
+- Mark [TIMING] transitions clearly  
+- Suggest [B-ROLL] for visual storytelling
+- Note [TEXT ON SCREEN] for emphasis
+- Include [PAUSE] for dramatic effect
+- Suggest [GRAPHICS/ANIMATIONS] where helpful
+- Keep paragraphs SHORT (2-3 sentences) for teleprompter readability
 
-Now create the complete, word-for-word script following these guidelines.
+NOW CREATE THE COMPLETE, PRODUCTION-READY SCRIPT:
 """
+        
+        # Use higher temperature for regeneration to encourage changes
+        temperature = 0.85 if request.regenerate_feedback else 0.7
         
         return await ai_service.generate(
             prompt=prompt,
             model=request.ai_model,
-            temperature=0.7,  # Slightly lower for more consistent structure
-            max_tokens=4000,  # Increased for longer, detailed scripts
+            temperature=temperature,  # Higher for regeneration, balanced for initial generation
+            max_tokens=4000,  # Enough for detailed scripts
             system_prompt=system_prompt
         )
     

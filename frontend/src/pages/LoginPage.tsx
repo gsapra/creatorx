@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Sparkles, Mail, Lock, ArrowLeft } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { apiUrl } from '../config'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -20,7 +21,7 @@ export default function LoginPage() {
       formData.append('password', password)
 
       // Call the actual login API
-      const response = await fetch('http://localhost:8000/api/v1/auth/login', {
+      const response = await fetch(apiUrl('/api/v1/auth/login'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded'
@@ -39,7 +40,7 @@ export default function LoginPage() {
       localStorage.setItem('token', data.access_token)
       
       // Fetch user info
-      const userResponse = await fetch('http://localhost:8000/api/v1/auth/me', {
+      const userResponse = await fetch(apiUrl('/api/v1/auth/me'), {
         headers: {
           'Authorization': `Bearer ${data.access_token}`
         }

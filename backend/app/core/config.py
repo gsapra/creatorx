@@ -31,7 +31,16 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str = ""
     
     # CORS
-    CORS_ORIGINS: Union[List[str], str] = ["http://localhost:3000", "http://localhost:5173"]
+    CORS_ORIGINS: Union[List[str], str] = [
+        "http://localhost:3000", 
+        "http://localhost:5173",
+        "http://44.215.164.169",
+        "http://44.215.164.169:8000",
+        "https://minimalthreads.in",
+        "https://www.minimalthreads.in",
+        "http://minimalthreads.in",
+        "http://www.minimalthreads.in"
+    ]
     
     @field_validator('CORS_ORIGINS', mode='before')
     @classmethod

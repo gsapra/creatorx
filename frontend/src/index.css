@@ -2,6 +2,63 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Script Generator Enhanced Typography */
+.formatted-script {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  line-height: 1.7;
+  letter-spacing: 0.01em;
+}
+
+.formatted-script h1,
+.formatted-script h2,
+.formatted-script h3,
+.formatted-script h4 {
+  font-weight: 700;
+  line-height: 1.3;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.formatted-script h1:first-child,
+.formatted-script h2:first-child,
+.formatted-script h3:first-child {
+  margin-top: 0;
+}
+
+.formatted-script p {
+  margin-bottom: 1rem;
+}
+
+.formatted-script strong,
+.formatted-script b {
+  font-weight: 600;
+  color: #7c3aed;
+}
+
+.formatted-script em,
+.formatted-script i {
+  font-style: italic;
+  color: #64748b;
+}
+
+.formatted-script ul,
+.formatted-script ol {
+  margin-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.formatted-script li {
+  margin-bottom: 0.5rem;
+  line-height: 1.6;
+}
+
+/* Selection styling */
+.formatted-script ::selection {
+  background-color: #e9d5ff;
+  color: #581c87;
+}
+
 @layer base {
   body {
     @apply bg-gray-50 text-gray-900;

@@ -19,66 +19,66 @@ services:
       timeout: 5s
       retries: 5
 
-  # ClickHouse Vector Database
-  clickhouse:
-    image: clickhouse/clickhouse-server:latest
-    container_name: creatorx_clickhouse
-    environment:
-      CLICKHOUSE_DB: creatorx
-      CLICKHOUSE_USER: creatorx
-      CLICKHOUSE_PASSWORD: creatorx_password
-    ports:
-      - "8123:8123"
-      - "9000:9000"
-    volumes:
-      - clickhouse_data:/var/lib/clickhouse
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "localhost:8123/ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+  # # ClickHouse Vector Database
+  # clickhouse:
+  #   image: clickhouse/clickhouse-server:latest
+  #   container_name: creatorx_clickhouse
+  #   environment:
+  #     CLICKHOUSE_DB: creatorx
+  #     CLICKHOUSE_USER: creatorx
+  #     CLICKHOUSE_PASSWORD: creatorx_password
+  #   ports:
+  #     - "8123:8123"
+  #     - "9000:9000"
+  #   volumes:
+  #     - clickhouse_data:/var/lib/clickhouse
+  #   healthcheck:
+  #     test: ["CMD", "wget", "--spider", "-q", "localhost:8123/ping"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
 
-  # Redis Cache
-  redis:
-    image: redis:7-alpine
-    container_name: creatorx_redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+  # # Redis Cache
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: creatorx_redis
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
 
   # FastAPI Backend
-  # backend:
-  #   build:
-  #     context: ./backend
-  #     dockerfile: Dockerfile
-  #   container_name: creatorx_backend
-  #   environment:
-  #     DATABASE_URL: postgresql://creatorx:creatorx_password@postgres:5432/creatorx
-  #     CLICKHOUSE_URL: http://clickhouse:8123
-  #     REDIS_URL: redis://redis:6379
-  #     OPENAI_API_KEY: ${OPENAI_API_KEY}
-  #     GOOGLE_VERTEX_PROJECT_ID: ${GOOGLE_VERTEX_PROJECT_ID}
-  #     GOOGLE_VERTEX_LOCATION: ${GOOGLE_VERTEX_LOCATION}
-  #     GROQ_API_KEY: ${GROQ_API_KEY}
-  #     JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-secret-key-change-in-production}
-  #   ports:
-  #     - "8000:8000"
-  #   volumes:
-  #     - ./backend:/app
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
-  #     clickhouse:
-  #       condition: service_healthy
-  #   command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: creatorx_backend
+    environment:
+      DATABASE_URL: postgresql://creatorx:creatorx_password@postgres:5432/creatorx
+      CLICKHOUSE_URL: http://clickhouse:8123
+      REDIS_URL: redis://redis:6379
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      GOOGLE_VERTEX_PROJECT_ID: ${GOOGLE_VERTEX_PROJECT_ID}
+      GOOGLE_VERTEX_LOCATION: ${GOOGLE_VERTEX_LOCATION}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-secret-key-change-in-production}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      # redis:
+      #   condition: service_healthy
+      # clickhouse:
+      #   condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   # Celery Worker for async tasks
   # celery_worker:
@@ -101,23 +101,20 @@ services:
   #   command: celery -A app.celery_worker worker --loglevel=info
 
   # React Frontend
-  # frontend:
-  #   build:
-  #     context: ./frontend
-  #     dockerfile: Dockerfile
-  #   container_name: creatorx_frontend
-  #   environment:
-  #     VITE_API_BASE_URL: http://localhost:8000
-  #   ports:
-  #     - "3000:3000"
-  #   volumes:
-  #     - ./frontend:/app
-  #     - /app/node_modules
-  #   depends_on:
-  #     - backend
-  #   command: npm run dev -- --host
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: creatorx_frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      - backend
 
 volumes:
   postgres_data:
-  clickhouse_data:
-  redis_data:
+  # clickhouse_data:
+  # redis_data:

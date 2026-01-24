@@ -122,6 +122,11 @@ class ScriptGenerationRequest(BaseModel):
     script_flow: Optional[str] = None  # e.g., "Hook → Problem → Solution → How it works → Results → CTA"
     style: Optional[str] = None  # e.g., "educational", "storytelling", "tutorial", "vlog-style"
     ai_model: str = "openai"
+    # Regeneration fields
+    regenerate_feedback: Optional[str] = None
+    previous_script: Optional[str] = None
+    parent_content_id: Optional[str] = None
+    version_number: Optional[int] = None
 
 
 # Title Generation Schemas

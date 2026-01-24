@@ -58,6 +58,11 @@ async def generate_script(
     """Generate video script"""
     start_time = time.time()
     
+    # Log regeneration requests for debugging
+    if request.regenerate_feedback:
+        print(f"[Script Regeneration] User: {current_user.id}, Feedback: {request.regenerate_feedback[:100]}...")
+        print(f"[Script Regeneration] Has previous script: {bool(request.previous_script)}, Length: {len(request.previous_script) if request.previous_script else 0}")
+    
     # Get persona if provided and it exists
     persona = await get_persona_dict(db, request.persona_id, current_user.id)
     
@@ -78,10 +83,10 @@ async def generate_script(
     }
     
     # Add version tracking if this is a regeneration
-    if hasattr(request, 'parent_content_id') and request.parent_content_id:
+    if request.parent_content_id:
         meta_data['parent_content_id'] = str(request.parent_content_id)
-        meta_data['version_number'] = getattr(request, 'version_number', 2)
-        if hasattr(request, 'regenerate_feedback') and request.regenerate_feedback:
+        meta_data['version_number'] = request.version_number or 2
+        if request.regenerate_feedback:
             meta_data['regeneration_feedback'] = request.regenerate_feedback
     else:
         meta_data['version_number'] = 1

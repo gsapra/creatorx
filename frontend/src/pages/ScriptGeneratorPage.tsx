@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import DashboardLayout from '../components/DashboardLayout'
-import { FileText, Sparkles, Loader, Clock, Trash2, Download, X, Share2, Copy, Check, RefreshCw } from 'lucide-react'
+import { FileText, Sparkles, Loader, Clock, Trash2, Download, X, Share2, Copy, Check, RefreshCw, Eye, Code } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { usePersonas } from '../contexts/PersonaContext'
+import { apiUrl } from '../config'
 
 interface HistoryItem {
   id: string
@@ -61,6 +62,7 @@ export default function ScriptGeneratorPage() {
   const [regenerateFeedback, setRegenerateFeedback] = useState('')
   const [regenerating, setRegenerating] = useState(false)
   const [analytics, setAnalytics] = useState<ScriptAnalytics | null>(null)
+  const [viewMode, setViewMode] = useState<'formatted' | 'raw'>('formatted')
 
   // Helper to get user-specific localStorage key
   const getUserStorageKey = () => {
@@ -87,7 +89,7 @@ export default function ScriptGeneratorPage() {
       console.log('[Script History] Loading history...')
       
       try {
-        const response = await fetch('http://localhost:8000/api/v1/content?content_type=script&limit=50', {
+        const response = await fetch(apiUrl('/api/v1/content?content_type=script&limit=50'), {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -120,7 +122,7 @@ export default function ScriptGeneratorPage() {
                 scriptPersonaId: ''
               }
             }))
-            .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+            .sort((a: HistoryItem, b: HistoryItem) => b.timestamp.getTime() - a.timestamp.getTime())
 
           setHistory(backendHistory)
           
@@ -196,21 +198,45 @@ export default function ScriptGeneratorPage() {
     setLoading(true)
 
     try {
-      // Prepare API request
-      const requestBody = {
+      // Prepare API request with ONLY non-empty fields for better prompt accuracy
+      const requestBody: any = {
         topic: formData.topic,
         duration_minutes: formData.duration,
-        tone: formData.tone,
-        target_audience: formData.targetAudience,
-        key_points: formData.keyPoints ? formData.keyPoints.split(',').map(p => p.trim()).filter(p => p) : [],
-        script_flow: formData.scriptFlow || null,
-        style: formData.style || null,
-        persona_id: formData.scriptPersonaId ? parseInt(formData.scriptPersonaId) : (formData.audiencePersonaId ? parseInt(formData.audiencePersonaId) : null),
         ai_model: 'openai'
       }
 
+      // Only add fields that have meaningful content
+      if (formData.targetAudience?.trim()) {
+        requestBody.target_audience = formData.targetAudience.trim()
+      }
+      
+      if (formData.tone && !formData.scriptPersonaId) {
+        requestBody.tone = formData.tone
+      }
+      
+      if (formData.keyPoints?.trim()) {
+        const keyPointsArray = formData.keyPoints.split(',').map(p => p.trim()).filter(p => p)
+        if (keyPointsArray.length > 0) {
+          requestBody.key_points = keyPointsArray
+        }
+      }
+      
+      if (formData.scriptFlow?.trim()) {
+        requestBody.script_flow = formData.scriptFlow.trim()
+      }
+      
+      if (formData.style && formData.style !== '') {
+        requestBody.style = formData.style
+      }
+      
+      if (formData.scriptPersonaId) {
+        requestBody.persona_id = parseInt(formData.scriptPersonaId)
+      } else if (formData.audiencePersonaId) {
+        requestBody.persona_id = parseInt(formData.audiencePersonaId)
+      }
+
       // Call the actual API
-      const response = await fetch('http://localhost:8000/api/v1/creator-tools/generate-script', {
+      const response = await fetch(apiUrl('/api/v1/creator-tools/generate-script'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -255,14 +281,14 @@ export default function ScriptGeneratorPage() {
         timestamp: new Date(),
         share_token: data.share_token,
         is_public: data.is_public,
-        versions: [],
+        parent_content_id: data.parent_content_id,
+        version_number: data.version_number,
         formData: { ...formData }
       }
       
       console.log('[Script Generation] Adding to history:', newHistoryItem)
       setHistory([newHistoryItem, ...history])
       setCurrentContentId(data.id.toString())
-      setScriptVersions([])
       
       toast.success('Script generated successfully!')
     } catch (error) {
@@ -290,7 +316,7 @@ export default function ScriptGeneratorPage() {
       const token = localStorage.getItem('token')
       if (token) {
         // Delete from backend
-        const response = await fetch(`http://localhost:8000/api/v1/content/${id}`, {
+        const response = await fetch(apiUrl(`/api/v1/content/${id}`), {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`
@@ -332,7 +358,7 @@ export default function ScriptGeneratorPage() {
       if (token) {
         // Delete all script content from backend
         const deletePromises = history.map(item => 
-          fetch(`http://localhost:8000/api/v1/content/${item.id}`, {
+          fetch(apiUrl(`/api/v1/content/${item.id}`), {
             method: 'DELETE',
             headers: {
               'Authorization': `Bearer ${token}`
@@ -384,7 +410,7 @@ export default function ScriptGeneratorPage() {
     setSharingId(idToShare)
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`http://localhost:8000/api/v1/content/${idToShare}/share`, {
+      const response = await fetch(apiUrl(`/api/v1/content/${idToShare}/share`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -489,24 +515,57 @@ export default function ScriptGeneratorPage() {
       const currentVersionNum = currentItem?.version_number || 1
       const originalParentId = currentItem?.parent_content_id || currentContentId
 
-      // Prepare regeneration request with version tracking
-      const requestBody = {
+      // Prepare regeneration request with EMPHASIZED feedback and better prompt structure
+      const requestBody: any = {
         topic: formData.topic,
         duration_minutes: formData.duration,
-        tone: formData.tone,
-        target_audience: formData.targetAudience,
-        key_points: formData.keyPoints ? formData.keyPoints.split(',').map(p => p.trim()).filter(p => p) : [],
-        script_flow: formData.scriptFlow || null,
-        style: formData.style || null,
-        persona_id: formData.scriptPersonaId ? parseInt(formData.scriptPersonaId) : (formData.audiencePersonaId ? parseInt(formData.audiencePersonaId) : null),
         ai_model: 'openai',
-        regenerate_feedback: regenerateFeedback,
+        // CRITICAL: Emphasize user feedback in regeneration
+        regenerate_feedback: `IMPORTANT USER FEEDBACK - MUST FOLLOW: ${regenerateFeedback}`,
         previous_script: generatedScript,
         parent_content_id: originalParentId || currentContentId,
         version_number: currentVersionNum + 1
       }
 
-      const response = await fetch('http://localhost:8000/api/v1/creator-tools/generate-script', {
+      console.log('[Script Regeneration] Request payload:', {
+        feedback: regenerateFeedback,
+        has_previous_script: !!generatedScript,
+        previous_script_length: generatedScript?.length,
+        parent_id: originalParentId || currentContentId,
+        version: currentVersionNum + 1
+      })
+
+      // Only add non-empty fields for better accuracy
+      if (formData.targetAudience?.trim()) {
+        requestBody.target_audience = formData.targetAudience.trim()
+      }
+      
+      if (formData.tone && !formData.scriptPersonaId) {
+        requestBody.tone = formData.tone
+      }
+      
+      if (formData.keyPoints?.trim()) {
+        const keyPointsArray = formData.keyPoints.split(',').map(p => p.trim()).filter(p => p)
+        if (keyPointsArray.length > 0) {
+          requestBody.key_points = keyPointsArray
+        }
+      }
+      
+      if (formData.scriptFlow?.trim()) {
+        requestBody.script_flow = formData.scriptFlow.trim()
+      }
+      
+      if (formData.style && formData.style !== '') {
+        requestBody.style = formData.style
+      }
+      
+      if (formData.scriptPersonaId) {
+        requestBody.persona_id = parseInt(formData.scriptPersonaId)
+      } else if (formData.audiencePersonaId) {
+        requestBody.persona_id = parseInt(formData.audiencePersonaId)
+      }
+
+      const response = await fetch(apiUrl('/api/v1/creator-tools/generate-script'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -533,7 +592,7 @@ export default function ScriptGeneratorPage() {
         timestamp: new Date(),
         share_token: data.share_token,
         is_public: data.is_public,
-        parent_content_id: originalParentId || currentContentId,
+        parent_content_id: originalParentId || currentContentId || undefined,
         version_number: currentVersionNum + 1,
         regeneration_feedback: regenerateFeedback,
         formData: { ...formData }
@@ -950,9 +1009,128 @@ export default function ScriptGeneratorPage() {
 
             {generatedScript ? (
               <div className="space-y-4">
-                <pre className="whitespace-pre-wrap text-sm text-gray-700 bg-gray-50 p-4 rounded-lg border border-gray-200 max-h-[600px] overflow-y-auto">
-                  {generatedScript}
-                </pre>
+                {/* View mode toggle */}
+                <div className="flex items-center justify-end space-x-2 mb-2">
+                  <button
+                    onClick={() => setViewMode('formatted')}
+                    className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      viewMode === 'formatted'
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>Formatted</span>
+                  </button>
+                  <button
+                    onClick={() => setViewMode('raw')}
+                    className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      viewMode === 'raw'
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    <Code className="w-3.5 h-3.5" />
+                    <span>Raw</span>
+                  </button>
+                </div>
+
+                {/* Script display */}
+                {viewMode === 'formatted' ? (
+                  <div className="prose prose-sm max-w-none bg-gradient-to-br from-white to-purple-50 p-6 rounded-xl border border-purple-100 shadow-sm max-h-[600px] overflow-y-auto">
+                    <div className="formatted-script text-gray-800 leading-relaxed">
+                      {generatedScript.split('\n\n').map((paragraph, idx) => {
+                        // Check if it's a heading (starts with # or is ALL CAPS)
+                        if (paragraph.startsWith('#')) {
+                          const level = paragraph.match(/^#+/)?.[0].length || 1
+                          const text = paragraph.replace(/^#+\s*/, '')
+                          const HeadingTag = `h${Math.min(level, 6)}` as keyof JSX.IntrinsicElements
+                          return (
+                            <HeadingTag
+                              key={idx}
+                              className="font-bold text-purple-900 mt-6 mb-3 first:mt-0"
+                              style={{
+                                fontSize: level === 1 ? '1.5rem' : level === 2 ? '1.25rem' : '1.1rem'
+                              }}
+                            >
+                              {text}
+                            </HeadingTag>
+                          )
+                        }
+                        
+                        // Check if it's an all-caps section header
+                        if (paragraph === paragraph.toUpperCase() && paragraph.length < 50 && paragraph.length > 3) {
+                          return (
+                            <h3 key={idx} className="font-bold text-lg text-purple-900 mt-6 mb-3 first:mt-0">
+                              {paragraph}
+                            </h3>
+                          )
+                        }
+                        
+                        // Check if it's a list item
+                        if (paragraph.match(/^[-•*]\s/)) {
+                          return (
+                            <li key={idx} className="ml-4 mb-2 text-gray-700">
+                              {paragraph.replace(/^[-•*]\s/, '')}
+                            </li>
+                          )
+                        }
+                        
+                        // Check if it's a numbered point
+                        if (paragraph.match(/^\d+[\.\)]\s/)) {
+                          return (
+                            <li key={idx} className="ml-4 mb-2 text-gray-700 list-decimal">
+                              {paragraph.replace(/^\d+[\.\)]\s/, '')}
+                            </li>
+                          )
+                        }
+                        
+                        // Check for speaker labels (e.g., "HOST:", "NARRATOR:")
+                        if (paragraph.match(/^[A-Z][A-Z\s]+:/)) {
+                          const [speaker, ...rest] = paragraph.split(':')
+                          return (
+                            <p key={idx} className="mb-4 text-gray-700">
+                              <span className="font-bold text-purple-700">{speaker}:</span>
+                              <span className="ml-2">{rest.join(':')}</span>
+                            </p>
+                          )
+                        }
+                        
+                        // Check for stage directions [like this]
+                        if (paragraph.includes('[') && paragraph.includes(']')) {
+                          const parts = paragraph.split(/([\[\]])/)
+                          return (
+                            <p key={idx} className="mb-4 text-gray-700">
+                              {parts.map((part, i) => {
+                                if (part === '[') return null
+                                if (part === ']') return null
+                                if (parts[i - 1] === '[') {
+                                  return (
+                                    <span key={i} className="italic text-gray-500 text-sm">
+                                      [{part}]
+                                    </span>
+                                  )
+                                }
+                                return <span key={i}>{part}</span>
+                              })}
+                            </p>
+                          )
+                        }
+                        
+                        // Regular paragraph
+                        return (
+                          <p key={idx} className="mb-4 text-gray-700 leading-relaxed">
+                            {paragraph}
+                          </p>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <pre className="whitespace-pre-wrap text-sm text-gray-700 bg-gray-50 p-6 rounded-xl border border-gray-200 max-h-[600px] overflow-y-auto font-mono">
+                    {generatedScript}
+                  </pre>
+                )}
                 
                 {/* Quick Stats */}
                 {analytics && (

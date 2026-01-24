@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { FileText, Copy, Download, Check, Loader, AlertCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { apiUrl } from '../config'
 
 export default function SharedScriptPage() {
   const { shareToken } = useParams<{ shareToken: string }>()
@@ -20,7 +21,7 @@ export default function SharedScriptPage() {
       }
 
       try {
-        const response = await fetch(`http://localhost:8000/api/v1/content/shared/${shareToken}`)
+        const response = await fetch(apiUrl(`/api/v1/content/shared/${shareToken}`))
         
         if (!response.ok) {
           if (response.status === 404) {

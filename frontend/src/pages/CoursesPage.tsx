@@ -97,11 +97,11 @@ export default function CoursesPage() {
     selectedCategory === 'all' || course.category === selectedCategory
   )
 
-  const handleEnroll = (courseId: string) => {
+  const handleEnroll = (_courseId: string) => {
     toast.success('Successfully enrolled in course!')
   }
 
-  const handleContinue = (courseId: string) => {
+  const handleContinue = (_courseId: string) => {
     toast.success('Continuing course...')
   }
 

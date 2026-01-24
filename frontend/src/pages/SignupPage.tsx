@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Sparkles, Mail, Lock, User, Briefcase, ArrowLeft } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { apiUrl } from '../config'
 
 export default function SignupPage() {
   const navigate = useNavigate()
@@ -31,7 +32,7 @@ export default function SignupPage() {
 
     try {
       // Call the actual signup API
-      const response = await fetch('http://localhost:8000/api/v1/auth/signup', {
+      const response = await fetch(apiUrl('/api/v1/auth/signup'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -57,7 +58,7 @@ export default function SignupPage() {
       loginFormData.append('username', formData.email)
       loginFormData.append('password', formData.password)
 
-      const loginResponse = await fetch('http://localhost:8000/api/v1/auth/login', {
+      const loginResponse = await fetch(apiUrl('/api/v1/auth/login'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded'
