@@ -205,7 +205,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="bg-white rounded-xl p-6 border border-gray-200">
             {loading ? (
               <Loader className="w-8 h-8 animate-spin text-brand-600 mb-2" />
@@ -224,19 +224,19 @@ export default function DashboardPage() {
           </div>
           <div className="bg-white rounded-xl p-6 border border-gray-200">
             {loading ? (
-              <Loader className="w-8 h-8 animate-spin text-blue-600 mb-2" />
+              <Loader className="w-8 h-8 animate-spin text-green-600 mb-2" />
             ) : (
-              <div className="text-3xl font-bold text-blue-600">{stats?.active_personas || 0}</div>
+              <div className="text-3xl font-bold text-green-600">{stats?.social_captions_created || 0}</div>
             )}
-            <div className="text-gray-600 text-sm mt-1">Active Personas</div>
+            <div className="text-gray-600 text-sm mt-1">Social Captions</div>
           </div>
           <div className="bg-white rounded-xl p-6 border border-gray-200">
             {loading ? (
-              <Loader className="w-8 h-8 animate-spin text-green-600 mb-2" />
+              <Loader className="w-8 h-8 animate-spin text-orange-600 mb-2" />
             ) : (
-              <div className="text-3xl font-bold text-green-600">{stats?.brand_connections || 0}</div>
+              <div className="text-3xl font-bold text-orange-600">{stats?.seo_optimizations || 0}</div>
             )}
-            <div className="text-gray-600 text-sm mt-1">Brand Connections</div>
+            <div className="text-gray-600 text-sm mt-1">SEO Optimizations</div>
           </div>
         </div>
 

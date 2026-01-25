@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import DashboardLayout from '../components/DashboardLayout'
-import { FileText, Sparkles, Loader, Clock, Trash2, Download, X, Share2, Copy, Check, RefreshCw, Eye, Code } from 'lucide-react'
+import { FileText, Sparkles, Loader, Clock, Trash2, Download, X, Share2, Copy, Check, RefreshCw, Eye, Code, ChevronDown, ChevronRight, ZoomIn, ZoomOut, FileDown, Printer, List } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { usePersonas } from '../contexts/PersonaContext'
 import { apiUrl } from '../config'
@@ -39,6 +39,15 @@ interface ScriptAnalytics {
   estimatedSpeakingTime: string
 }
 
+interface ScriptSection {
+  id: string
+  title: string
+  timestamp: string
+  content: string
+  startTime: number // in seconds
+  endTime: number // in seconds
+}
+
 export default function ScriptGeneratorPage() {
   const { getAudiencePersonas, getScriptPersonas } = usePersonas()
   const [formData, setFormData] = useState({
@@ -73,6 +82,12 @@ export default function ScriptGeneratorPage() {
   const [streamingEnabled, setStreamingEnabled] = useState(true)  // Enable streaming by default
   const [progressMessage, setProgressMessage] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
+  const [fontSize, setFontSize] = useState(16) // Base font size in px
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
+  const [scriptSections, setScriptSections] = useState<ScriptSection[]>([])
+  const [showNavigation, setShowNavigation] = useState(false)
+  const [showExportMenu, setShowExportMenu] = useState(false)
+  const scriptContainerRef = useRef<HTMLDivElement>(null)
 
   // Helper to get user-specific localStorage key
   const getUserStorageKey = () => {
@@ -588,21 +603,6 @@ export default function ScriptGeneratorPage() {
     }
   }
 
-  const downloadScript = () => {
-    if (!generatedScript) return
-    
-    const blob = new Blob([generatedScript], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `script-${formData.topic.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}.txt`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-    toast.success('Script downloaded!')
-  }
-
   const generateShareLink = async (contentId?: string) => {
     const idToShare = contentId || currentContentId
     if (!idToShare) {
@@ -693,6 +693,204 @@ export default function ScriptGeneratorPage() {
       readTimeMinutes,
       estimatedSpeakingTime: `${minutes}:${seconds.toString().padStart(2, '0')}`
     })
+  }
+
+  // Parse script into sections based on timestamps
+  const parseScriptSections = (script: string) => {
+    const sections: ScriptSection[] = []
+    const lines = script.split('\n')
+
+    let currentSection: ScriptSection | null = null
+    let currentContent: string[] = []
+
+    const timestampRegex = /\[([\w\s\/-]+)\s*-\s*(\d+):(\d+)-(\d+):(\d+)\]/
+
+    lines.forEach((line, idx) => {
+      const match = line.match(timestampRegex)
+
+      if (match) {
+        // Save previous section
+        if (currentSection) {
+          const section: ScriptSection = {
+            id: currentSection.id,
+            title: currentSection.title,
+            timestamp: currentSection.timestamp,
+            startTime: currentSection.startTime,
+            endTime: currentSection.endTime,
+            content: currentContent.join('\n').trim()
+          }
+          sections.push(section)
+        }
+
+        // Start new section
+        const [, title, startMin, startSec, endMin, endSec] = match
+        const startTime = parseInt(startMin) * 60 + parseInt(startSec)
+        const endTime = parseInt(endMin) * 60 + parseInt(endSec)
+
+        currentSection = {
+          id: `section-${idx}`,
+          title: title.trim(),
+          timestamp: `${startMin}:${startSec}-${endMin}:${endSec}`,
+          startTime,
+          endTime,
+          content: '' // Will be set later
+        }
+        currentContent = [] // Don't include the timestamp line
+      } else if (currentSection) {
+        currentContent.push(line)
+      } else {
+        // Content before first timestamp
+        if (sections.length === 0 && line.trim()) {
+          currentContent.push(line)
+        }
+      }
+    })
+
+    // Save last section
+    if (currentSection) {
+      const finalSection = currentSection as ScriptSection
+      sections.push({
+        id: finalSection.id,
+        title: finalSection.title,
+        timestamp: finalSection.timestamp,
+        startTime: finalSection.startTime,
+        endTime: finalSection.endTime,
+        content: currentContent.join('\n').trim()
+      })
+    } else if (currentContent.length > 0) {
+      // No timestamps found, create single section
+      sections.push({
+        id: 'section-0',
+        title: 'Full Script',
+        timestamp: '0:00-end',
+        content: currentContent.join('\n').trim(),
+        startTime: 0,
+        endTime: 0
+      })
+    }
+
+    console.log('[Script Sections] Parsed sections:', sections)
+    setScriptSections(sections)
+  }
+
+  // Update sections when script changes
+  useEffect(() => {
+    if (generatedScript) {
+      console.log('[Script Sections] Parsing script, length:', generatedScript.length)
+      parseScriptSections(generatedScript)
+    }
+  }, [generatedScript])
+
+  // Close export menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (showExportMenu && !target.closest('.export-menu-container')) {
+        setShowExportMenu(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showExportMenu])
+
+  const toggleSection = (sectionId: string) => {
+    setCollapsedSections(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(sectionId)) {
+        newSet.delete(sectionId)
+      } else {
+        newSet.add(sectionId)
+      }
+      return newSet
+    })
+  }
+
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId)
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }
+
+  const exportAsText = () => {
+    if (!generatedScript) return
+
+    const blob = new Blob([generatedScript], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `script-${formData.topic.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}.txt`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    toast.success('Script downloaded as TXT!')
+  }
+
+  const exportAsSRT = () => {
+    if (!generatedScript || scriptSections.length === 0) {
+      toast.error('No script sections available for SRT export')
+      return
+    }
+
+    let srtContent = ''
+    scriptSections.forEach((section, idx) => {
+      const formatTime = (seconds: number) => {
+        const h = Math.floor(seconds / 3600).toString().padStart(2, '0')
+        const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0')
+        const s = Math.floor(seconds % 60).toString().padStart(2, '0')
+        return `${h}:${m}:${s},000`
+      }
+
+      srtContent += `${idx + 1}\n`
+      srtContent += `${formatTime(section.startTime)} --> ${formatTime(section.endTime)}\n`
+      srtContent += `${section.content.replace(/\[.*?\]/g, '').trim()}\n\n`
+    })
+
+    const blob = new Blob([srtContent], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `script-${formData.topic.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}.srt`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    toast.success('Script exported as SRT subtitles!')
+  }
+
+  const printScript = () => {
+    if (!generatedScript) return
+
+    const printWindow = window.open('', '', 'width=800,height=600')
+    if (!printWindow) return
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Script - ${formData.topic}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; }
+            h1 { color: #333; border-bottom: 2px solid #6366f1; padding-bottom: 10px; }
+            .timestamp { background: #f3f4f6; padding: 8px; margin: 10px 0; border-left: 4px solid #6366f1; font-weight: bold; }
+            .content { margin: 10px 0 20px 0; }
+            .stage-direction { color: #6b7280; font-style: italic; }
+            @media print {
+              body { padding: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>${formData.topic}</h1>
+          <p><strong>Duration:</strong> ${formData.duration} minutes | <strong>Tone:</strong> ${formData.tone}</p>
+          <hr />
+          <pre style="white-space: pre-wrap; font-family: inherit;">${generatedScript}</pre>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+    printWindow.print()
   }
 
   const regenerateWithFeedback = async () => {
@@ -1387,40 +1585,233 @@ export default function ScriptGeneratorPage() {
 
           {/* Generated Output - Only show when script exists */}
           {generatedScript && (
-            <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Generated Script</h2>
-              <div className="space-y-4">
-                {/* View mode toggle */}
-                <div className="flex items-center justify-end space-x-2 mb-2">
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+              {/* Enhanced Header with Controls */}
+              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-gray-200 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-2xl font-bold text-gray-900">Generated Script</h2>
+
+                  {/* Font Size Controls */}
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setFontSize(Math.max(12, fontSize - 2))}
+                      className="p-2 bg-white hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
+                      title="Decrease font size"
+                    >
+                      <ZoomOut className="w-4 h-4 text-gray-600" />
+                    </button>
+                    <span className="text-sm text-gray-600 font-medium min-w-[3rem] text-center">
+                      {fontSize}px
+                    </span>
+                    <button
+                      onClick={() => setFontSize(Math.min(24, fontSize + 2))}
+                      className="p-2 bg-white hover:bg-gray-100 rounded-lg transition-colors border border-gray-200"
+                      title="Increase font size"
+                    >
+                      <ZoomIn className="w-4 h-4 text-gray-600" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Enhanced Stats Bar */}
+                {analytics && (
+                  <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                    <div className="grid grid-cols-3 gap-4 mb-3">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-indigo-600">{analytics.wordCount}</div>
+                        <div className="text-xs text-gray-600 font-medium">Words</div>
+                      </div>
+                      <div className="text-center border-l border-r border-gray-200">
+                        <div className="text-2xl font-bold text-purple-600">{analytics.estimatedSpeakingTime}</div>
+                        <div className="text-xs text-gray-600 font-medium">Speaking Time</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-pink-600">{scriptSections.length}</div>
+                        <div className="text-xs text-gray-600 font-medium">Sections</div>
+                      </div>
+                    </div>
+                    {/* Progress Bar */}
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-gradient-to-r from-indigo-600 to-purple-600 h-2 rounded-full transition-all"
+                        style={{ width: `${Math.min(100, (analytics.wordCount / (formData.duration * 150)) * 100)}%` }}
+                      ></div>
+                    </div>
+                    <div className="text-xs text-center text-gray-500 mt-1">
+                      Target: {formData.duration * 150} words ({formData.duration} min)
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* View Controls */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 border-b border-gray-200">
+                <div className="flex items-center space-x-2">
+                  {/* View Mode Toggle */}
                   <button
                     onClick={() => setViewMode('formatted')}
-                    className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    className={`flex items-center space-x-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                       viewMode === 'formatted'
-                        ? 'bg-brand-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        ? 'bg-indigo-600 text-white shadow-md'
+                        : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
                     }`}
                   >
-                    <Eye className="w-3.5 h-3.5" />
+                    <Eye className="w-4 h-4" />
                     <span>Formatted</span>
                   </button>
                   <button
                     onClick={() => setViewMode('raw')}
-                    className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                    className={`flex items-center space-x-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                       viewMode === 'raw'
-                        ? 'bg-brand-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        ? 'bg-indigo-600 text-white shadow-md'
+                        : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
                     }`}
                   >
-                    <Code className="w-3.5 h-3.5" />
+                    <Code className="w-4 h-4" />
                     <span>Raw</span>
                   </button>
                 </div>
 
-                {/* Script display */}
-                {viewMode === 'formatted' ? (
-                  <div className="prose prose-sm max-w-none bg-gradient-to-br from-white to-brand-50 p-6 rounded-xl border border-brand-100 shadow-sm max-h-[600px] overflow-y-auto">
-                    <div className="formatted-script text-gray-800 leading-relaxed">
-                      {generatedScript.split('\n\n').map((paragraph, idx) => {
+                {/* Navigation Toggle (only show if sections exist) */}
+                {scriptSections.length > 1 && (
+                  <button
+                    onClick={() => setShowNavigation(!showNavigation)}
+                    className="flex items-center space-x-2 px-3 py-2 bg-white hover:bg-gray-100 rounded-lg text-sm font-medium transition-colors border border-gray-200"
+                  >
+                    <List className="w-4 h-4" />
+                    <span>{showNavigation ? 'Hide' : 'Show'} Navigation</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Main Content Area with Optional Sidebar */}
+              <div className="flex">
+                {/* Section Navigation Sidebar */}
+                {showNavigation && scriptSections.length > 1 && (
+                  <div className="w-64 border-r border-gray-200 bg-gray-50 p-4 max-h-[700px] overflow-y-auto">
+                    <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center">
+                      <List className="w-4 h-4 mr-2" />
+                      Script Sections
+                    </h3>
+                    <div className="space-y-2">
+                      {scriptSections.map((section, idx) => (
+                        <button
+                          key={section.id}
+                          onClick={() => scrollToSection(section.id)}
+                          className="w-full text-left p-3 rounded-lg hover:bg-white border border-transparent hover:border-indigo-200 transition-all group"
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-bold text-indigo-600">
+                              {idx + 1}
+                            </span>
+                            <span className="text-xs text-gray-500 font-mono">
+                              {section.timestamp}
+                            </span>
+                          </div>
+                          <div className="text-sm font-medium text-gray-900 group-hover:text-indigo-700 line-clamp-2">
+                            {section.title}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Script Display */}
+                <div className="flex-1">
+                  {viewMode === 'formatted' ? (
+                    <div
+                      ref={scriptContainerRef}
+                      className="p-6 max-h-[700px] overflow-y-auto"
+                      style={{ fontSize: `${fontSize}px` }}
+                    >
+                      {scriptSections.length > 1 ? (
+                        // Sectioned view with collapsible sections
+                        <div className="space-y-4">
+                          {scriptSections.map((section, idx) => (
+                            <div
+                              key={section.id}
+                              id={section.id}
+                              className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm"
+                            >
+                              {/* Section Header */}
+                              <button
+                                onClick={() => toggleSection(section.id)}
+                                className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-indigo-50 to-purple-50 hover:from-indigo-100 hover:to-purple-100 transition-colors"
+                              >
+                                <div className="flex items-center space-x-3">
+                                  {collapsedSections.has(section.id) ? (
+                                    <ChevronRight className="w-5 h-5 text-indigo-600" />
+                                  ) : (
+                                    <ChevronDown className="w-5 h-5 text-indigo-600" />
+                                  )}
+                                  <div className="text-left">
+                                    <div className="flex items-center space-x-2">
+                                      <span className="text-sm font-bold text-indigo-600">
+                                        Section {idx + 1}
+                                      </span>
+                                      <span className="px-2 py-0.5 bg-indigo-200 text-indigo-800 text-xs font-mono rounded-full">
+                                        {section.timestamp}
+                                      </span>
+                                    </div>
+                                    <div className="text-base font-semibold text-gray-900 mt-1">
+                                      {section.title}
+                                    </div>
+                                  </div>
+                                </div>
+                                <Clock className="w-4 h-4 text-gray-400" />
+                              </button>
+
+                              {/* Section Content */}
+                              {!collapsedSections.has(section.id) && (
+                                <div className="p-6 bg-white">
+                                  {section.content.trim() ? (
+                                    <div className="prose prose-sm max-w-none">
+                                      {section.content.split('\n').map((line, pIdx) => {
+                                        // Skip empty lines
+                                        if (!line.trim()) {
+                                          return null
+                                        }
+
+                                        // Check for stage directions
+                                        if (line.includes('[') && line.includes(']')) {
+                                          const parts = line.split(/([\[\]])/)
+                                          return (
+                                            <p key={pIdx} className="mb-3 leading-relaxed text-gray-800">
+                                              {parts.map((part, i) => {
+                                                if (part === '[' || part === ']') return null
+                                                if (parts[i - 1] === '[') {
+                                                  return (
+                                                    <span key={i} className="italic text-gray-500 text-sm bg-gray-100 px-2 py-0.5 rounded">
+                                                      [{part}]
+                                                    </span>
+                                                  )
+                                                }
+                                                return <span key={i}>{part}</span>
+                                              })}
+                                            </p>
+                                          )
+                                        }
+
+                                        return (
+                                          <p key={pIdx} className="mb-3 text-gray-800 leading-relaxed">
+                                            {line}
+                                          </p>
+                                        )
+                                      })}
+                                    </div>
+                                  ) : (
+                                    <p className="text-gray-500 italic text-sm">No content in this section</p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        // Original formatted view for scripts without sections
+                        <div className="prose prose-sm max-w-none">
+                          {generatedScript.split('\n\n').map((paragraph, idx) => {
                         // Check if it's a heading (starts with # or is ALL CAPS)
                         if (paragraph.startsWith('#')) {
                           const level = paragraph.match(/^#+/)?.[0].length || 1
@@ -1505,49 +1896,85 @@ export default function ScriptGeneratorPage() {
                           </p>
                         )
                       })}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ) : (
-                  <pre className="whitespace-pre-wrap text-sm text-gray-700 bg-gray-50 p-6 rounded-xl border border-gray-200 max-h-[600px] overflow-y-auto font-mono">
-                    {generatedScript}
-                  </pre>
-                )}
-                
-                {/* Quick Stats */}
-                {analytics && (
-                  <div className="flex items-center justify-center gap-6 py-3 bg-gray-50 rounded-lg text-sm text-gray-600">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-brand-600">{analytics.wordCount}</span>
-                      <span>words</span>
-                    </div>
-                    <div className="w-px h-4 bg-gray-300"></div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-blue-600">{analytics.estimatedSpeakingTime}</span>
-                      <span>min speaking</span>
-                    </div>
-                  </div>
-                )}
+                  ) : (
+                    <pre
+                      className="whitespace-pre-wrap bg-gray-50 p-6 max-h-[700px] overflow-y-auto font-mono"
+                      style={{ fontSize: `${fontSize}px` }}
+                    >
+                      {generatedScript}
+                    </pre>
+                  )}
+                </div>
+              </div>
 
-                {/* Action Buttons */}
-                <div className="grid grid-cols-4 gap-3">
+              {/* Action Buttons - Enhanced */}
+              <div className="border-t border-gray-200 bg-gray-50 p-6">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   <button
                     onClick={copyToClipboard}
-                    className="py-3 bg-brand-600 text-white rounded-lg font-semibold hover:bg-brand-700 transition-colors flex items-center justify-center space-x-2"
+                    className="py-3 px-4 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 shadow-md"
+                    title="Copy script to clipboard"
                   >
                     {copied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
                     <span>{copied ? 'Copied!' : 'Copy'}</span>
                   </button>
-                  <button
-                    onClick={downloadScript}
-                    className="py-3 bg-gray-800 text-white rounded-lg font-semibold hover:bg-gray-900 transition-colors flex items-center justify-center space-x-2"
-                  >
-                    <Download className="w-5 h-5" />
-                    <span>Download</span>
-                  </button>
+
+                  {/* Export Dropdown */}
+                  <div className="relative export-menu-container">
+                    <button
+                      onClick={() => setShowExportMenu(!showExportMenu)}
+                      className="w-full py-3 px-4 bg-gray-800 text-white rounded-lg font-medium hover:bg-gray-900 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 shadow-md"
+                      title="Export options"
+                    >
+                      <FileDown className="w-5 h-5" />
+                      <span>Export</span>
+                    </button>
+
+                    {showExportMenu && (
+                      <div className="absolute bottom-full left-0 mb-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden z-20">
+                        <button
+                          onClick={() => {
+                            exportAsText()
+                            setShowExportMenu(false)
+                          }}
+                          className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-2 text-sm"
+                        >
+                          <Download className="w-4 h-4" />
+                          <span>Download as TXT</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            exportAsSRT()
+                            setShowExportMenu(false)
+                          }}
+                          className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-2 text-sm border-t border-gray-100"
+                          disabled={scriptSections.length <= 1}
+                        >
+                          <FileText className="w-4 h-4" />
+                          <span>Export as SRT</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            printScript()
+                            setShowExportMenu(false)
+                          }}
+                          className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-2 text-sm border-t border-gray-100"
+                        >
+                          <Printer className="w-4 h-4" />
+                          <span>Print Script</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
                   <button
                     onClick={() => generateShareLink()}
                     disabled={!!sharingId}
-                    className="py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-cyan-700 transition-colors flex items-center justify-center space-x-2 disabled:opacity-50"
+                    className="py-3 px-4 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-cyan-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50 shadow-md"
+                    title="Generate shareable link"
                   >
                     {sharingId ? (
                       <Loader className="w-5 h-5 animate-spin" />
@@ -1556,24 +1983,49 @@ export default function ScriptGeneratorPage() {
                     )}
                     <span>Share</span>
                   </button>
+
                   <button
                     onClick={() => setShowRegenerateModal(true)}
-                    className="py-3 bg-brand-600 text-white rounded-lg font-semibold hover:bg-brand-700 transition-colors flex items-center justify-center space-x-2"
+                    className="py-3 px-4 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg font-medium hover:from-orange-600 hover:to-red-600 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 shadow-md"
+                    title="Refine script with feedback"
                   >
                     <RefreshCw className="w-5 h-5" />
                     <span>Refine</span>
                   </button>
+
+                  <button
+                    onClick={startNewScript}
+                    className="py-3 px-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-pink-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 shadow-md"
+                    title="Start a new script"
+                  >
+                    <Sparkles className="w-5 h-5" />
+                    <span>New</span>
+                  </button>
                 </div>
 
                 {shareToken && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <div className="flex items-start space-x-2">
-                      <Share2 className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <div className="mt-4 bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-start space-x-3">
+                      <div className="flex-shrink-0 w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                        <Share2 className="w-5 h-5 text-white" />
+                      </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-blue-900 mb-1">Public Share Link</p>
-                        <code className="text-xs text-blue-700 break-all block bg-white px-2 py-1 rounded">
-                          {`${window.location.origin}/shared/${shareToken}`}
-                        </code>
+                        <p className="text-sm font-semibold text-blue-900 mb-2">Public Share Link Created!</p>
+                        <div className="flex items-center space-x-2">
+                          <code className="text-xs text-blue-700 break-all block bg-white px-3 py-2 rounded-lg border border-blue-200 flex-1 font-mono">
+                            {`${window.location.origin}/shared/${shareToken}`}
+                          </code>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(`${window.location.origin}/shared/${shareToken}`)
+                              toast.success('Link copied!')
+                            }}
+                            className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                            title="Copy link"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
