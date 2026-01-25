@@ -386,6 +386,7 @@ export default function TitleGeneratorPage() {
     // Ensure all fields have defaults for backward compatibility
     setFormData({
       ...item.formData,
+      ai_model: item.formData.ai_model || 'vertex',
       selectedFormulas: item.formData.selectedFormulas || [],
       tone: item.formData.tone || 'engaging',
       platform: item.formData.platform || 'youtube'

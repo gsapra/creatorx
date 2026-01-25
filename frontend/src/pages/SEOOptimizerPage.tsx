@@ -79,6 +79,7 @@ interface HistoryItem {
     targetKeywords: string
     contentType: string
     platform: string
+    industry?: string
     audiencePersonaId: string
     ai_model?: string
   }
@@ -339,7 +340,16 @@ export default function SEOOptimizerPage() {
   }
 
   const loadFromHistory = (item: HistoryItem) => {
-    setFormData(item.formData)
+    // Ensure all required fields have defaults for backward compatibility
+    setFormData({
+      content: item.formData.content || '',
+      targetKeywords: item.formData.targetKeywords || '',
+      contentType: item.formData.contentType || 'blog',
+      platform: item.formData.platform || 'google',
+      industry: item.formData.industry || '',
+      audiencePersonaId: item.formData.audiencePersonaId || '',
+      ai_model: item.formData.ai_model || 'openai'
+    })
     setOptimization(item.optimization)
     setShowHistory(false)
     toast.success('Loaded from history')

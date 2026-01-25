@@ -81,8 +81,9 @@ interface HistoryItem {
     captionLength: string
     ctaStyle: string
     audiencePersonaId: string
-    ai_model: string
+    ai_model?: string
     selectedStyles?: string[]
+    variationCount?: number
   }
 }
 
@@ -408,7 +409,13 @@ export default function SocialCaptionPage() {
   }
 
   const loadFromHistory = (item: HistoryItem) => {
-    setFormData(item.formData)
+    // Ensure all required fields have defaults for backward compatibility
+    setFormData({
+      ...item.formData,
+      ai_model: item.formData.ai_model || 'openai',
+      selectedStyles: item.formData.selectedStyles || [],
+      variationCount: item.formData.variationCount || 3
+    })
     setCaptions(item.captions)
     setShowHistory(false)
     toast.success('Loaded from history')
