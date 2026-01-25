@@ -85,19 +85,12 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
-      {/* Animated background */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
-        <div className="absolute top-40 right-10 w-72 h-72 bg-yellow-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
-        <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
-      </div>
-
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       {/* Signup Card */}
       <div className="relative z-10 w-full max-w-md">
         <button
           onClick={() => navigate('/')}
-          className="flex items-center space-x-2 text-gray-600 hover:text-purple-600 mb-6 transition-colors"
+          className="flex items-center space-x-2 text-gray-600 hover:text-brand-600 mb-6 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
           <span>Back to home</span>
@@ -106,8 +99,8 @@ export default function SignupPage() {
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-white">
           {/* Logo */}
           <div className="flex items-center justify-center space-x-2 mb-8">
-            <Sparkles className="w-10 h-10 text-purple-600" />
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+            <Sparkles className="w-10 h-10 text-brand-600" />
+            <h1 className="text-3xl font-bold bg-brand-600 bg-clip-text text-transparent">
               CreatorX
             </h1>
           </div>
@@ -125,11 +118,11 @@ export default function SignupPage() {
                   onClick={() => setFormData({ ...formData, role: 'creator' })}
                   className={`p-4 rounded-lg border-2 transition-all ${
                     formData.role === 'creator'
-                      ? 'border-purple-600 bg-purple-50'
+                      ? 'border-brand-600 bg-brand-50'
                       : 'border-gray-200 hover:border-purple-300'
                   }`}
                 >
-                  <User className="w-6 h-6 mx-auto mb-2 text-purple-600" />
+                  <User className="w-6 h-6 mx-auto mb-2 text-brand-600" />
                   <div className="text-sm font-semibold">Creator</div>
                 </button>
                 <button
@@ -137,11 +130,11 @@ export default function SignupPage() {
                   onClick={() => setFormData({ ...formData, role: 'brand' })}
                   className={`p-4 rounded-lg border-2 transition-all ${
                     formData.role === 'brand'
-                      ? 'border-purple-600 bg-purple-50'
+                      ? 'border-brand-600 bg-brand-50'
                       : 'border-gray-200 hover:border-purple-300'
                   }`}
                 >
-                  <Briefcase className="w-6 h-6 mx-auto mb-2 text-purple-600" />
+                  <Briefcase className="w-6 h-6 mx-auto mb-2 text-brand-600" />
                   <div className="text-sm font-semibold">Brand</div>
                 </button>
               </div>
@@ -211,7 +204,7 @@ export default function SignupPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-pink-700 transition-all transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 bg-brand-600 text-white rounded-lg font-semibold hover:bg-brand-700 transition-all transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Creating account...' : 'Create Account'}
             </button>
@@ -220,7 +213,7 @@ export default function SignupPage() {
           <div className="mt-6 text-center">
             <p className="text-gray-600">
               Already have an account?{' '}
-              <Link to="/login" className="text-purple-600 font-semibold hover:text-purple-700">
+              <Link to="/login" className="text-brand-600 font-semibold hover:text-brand-700">
                 Sign in
               </Link>
             </p>

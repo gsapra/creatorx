@@ -54,6 +54,10 @@ class Token(BaseModel):
     token_type: str = "bearer"
 
 
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
+
 # Persona Schemas
 class PersonaBase(BaseModel):
     name: str
@@ -139,13 +143,118 @@ class TitleGenerationRequest(BaseModel):
     ai_model: str = "openai"
 
 
-# Thumbnail Idea Schemas
+# Thumbnail Generation Schemas
+class ThumbnailLayer(BaseModel):
+    """Individual layer in a thumbnail (text, image, shape, etc.)"""
+    id: str
+    type: str  # 'text', 'image', 'shape', 'background'
+    x: float
+    y: float
+    width: float
+    height: float
+    rotation: Optional[float] = 0
+    opacity: Optional[float] = 1.0
+    z_index: Optional[int] = 0
+
+    # Text-specific properties
+    text: Optional[str] = None
+    font_family: Optional[str] = None
+    font_size: Optional[int] = None
+    font_weight: Optional[str] = None
+    color: Optional[str] = None
+    text_align: Optional[str] = None
+    stroke_color: Optional[str] = None
+    stroke_width: Optional[int] = None
+    shadow_color: Optional[str] = None
+    shadow_blur: Optional[int] = None
+    shadow_offset_x: Optional[int] = None
+    shadow_offset_y: Optional[int] = None
+
+    # Image-specific properties
+    image_url: Optional[str] = None
+    image_data: Optional[str] = None  # base64 encoded
+    fit: Optional[str] = None  # 'cover', 'contain', 'fill'
+
+    # Shape-specific properties
+    shape_type: Optional[str] = None  # 'rectangle', 'circle', 'arrow', 'highlight'
+    fill_color: Optional[str] = None
+    border_color: Optional[str] = None
+    border_width: Optional[int] = None
+    border_radius: Optional[int] = None
+
+    class Config:
+        extra = "allow"  # Allow extra fields from AI
+
+
+class ThumbnailTemplate(BaseModel):
+    """Complete thumbnail template with all layers"""
+    id: str
+    name: str
+    description: str
+    style: str  # 'modern', 'bold', 'minimalist', 'dramatic', 'gaming', 'vlog'
+    canvas_width: Optional[int] = 1280
+    canvas_height: Optional[int] = 720
+    layers: List[ThumbnailLayer]
+    psychology_notes: Optional[str] = None
+    tags: Optional[List[str]] = None
+
+    # Advanced Analytics
+    ctr_score: Optional[float] = None  # Predicted CTR score 0-100
+    ctr_factors: Optional[Dict] = None  # Breakdown of what affects CTR
+    emotion_target: Optional[str] = None  # Target emotion for this design
+    mobile_optimized: Optional[bool] = True  # Whether design is mobile-friendly
+
+    class Config:
+        extra = "allow"  # Allow extra fields from AI
+
+
 class ThumbnailIdeaRequest(BaseModel):
     video_title: str
     video_topic: str
     persona_id: Optional[int] = None
     count: int = Field(3, ge=1, le=10)
     ai_model: str = "openai"
+
+    # Style & Mood
+    style: Optional[str] = None  # 'modern', 'bold', 'minimalist', 'dramatic', 'gaming', 'vlog'
+    emotion: Optional[str] = None  # 'shocking', 'curious', 'exciting', 'inspiring', 'educational', 'entertaining'
+
+    # Visual Elements
+    include_face: Optional[bool] = True  # Whether to include face/person placeholder
+    face_expression: Optional[str] = None  # 'shocked', 'happy', 'serious', 'curious', 'excited'
+    color_scheme: Optional[str] = None  # 'vibrant', 'pastel', 'dark', 'neon', 'monochrome', 'complementary'
+    use_gradient: Optional[bool] = False  # Use gradient backgrounds
+
+    # Text Options
+    font_style: Optional[str] = None  # 'bold', 'clean', 'handwritten', 'modern', 'retro'
+    text_emphasis: Optional[str] = None  # 'number', 'question', 'statement', 'call-to-action'
+    include_emoji: Optional[bool] = False  # Include emoji in text
+
+    # Composition
+    layout_preference: Optional[str] = None  # 'centered', 'split', 'rule-of-thirds', 'asymmetric'
+    text_position: Optional[str] = None  # 'top', 'center', 'bottom', 'side'
+
+    # Advanced
+    target_platform: Optional[str] = 'youtube'  # 'youtube', 'instagram', 'tiktok', 'twitter'
+    optimize_for_mobile: Optional[bool] = True  # Ensure mobile readability
+    include_arrow: Optional[bool] = False  # Include pointing arrow
+    include_circle: Optional[bool] = False  # Include attention circle
+
+    # User Assets
+    custom_image_url: Optional[str] = None  # User-uploaded image URL
+    custom_images: Optional[List[Dict]] = None  # Multiple uploaded images with metadata
+    reference_images: Optional[List[Dict]] = None  # Reference images for AI to analyze style
+    brand_colors: Optional[List[str]] = None  # Array of hex colors for brand consistency
+    use_uploaded_image: Optional[bool] = False  # Use uploaded image as background/element
+
+    # Refinement
+    refinement_feedback: Optional[str] = None  # User feedback for refining existing thumbnail
+    previous_prompt: Optional[str] = None  # Previous DALL-E prompt for reference
+
+
+class ThumbnailGenerationResponse(BaseModel):
+    """Response containing generated thumbnail templates"""
+    templates: List[ThumbnailTemplate]
 
 
 # Social Caption Schemas

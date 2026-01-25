@@ -11,6 +11,52 @@ import secrets
 router = APIRouter()
 
 
+@router.get("/stats")
+async def get_content_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get aggregated content statistics for current user"""
+    from sqlalchemy import func
+
+    # Count by content type
+    stats_query = db.query(
+        Content.type,
+        func.count(Content.id).label('count')
+    ).filter(
+        Content.user_id == current_user.id
+    ).group_by(Content.type).all()
+
+    # Convert to dictionary
+    stats = {stat.type.value: stat.count for stat in stats_query}
+
+    # Count active personas
+    persona_count = db.query(Persona).filter(Persona.user_id == current_user.id).count()
+
+    # Count collaborations (brand connections) if user is creator
+    from app.models.models import Collaboration
+    collab_count = 0
+    if current_user.role.value == "creator":
+        collab_count = db.query(Collaboration).filter(
+            Collaboration.creator_id == current_user.id
+        ).count()
+    elif current_user.role.value == "brand":
+        collab_count = db.query(Collaboration).filter(
+            Collaboration.brand_id == current_user.id
+        ).count()
+
+    return {
+        "scripts_generated": stats.get("script", 0),
+        "titles_created": stats.get("title", 0),
+        "thumbnails_generated": stats.get("thumbnail_idea", 0),
+        "social_captions_created": stats.get("social_caption", 0),
+        "seo_optimizations": stats.get("seo_content", 0),
+        "active_personas": persona_count,
+        "brand_connections": collab_count,
+        "total_content": sum(stats.values())
+    }
+
+
 @router.get("/", response_model=List[ContentResponse])
 async def get_content(
     content_type: str = None,
@@ -21,10 +67,10 @@ async def get_content(
 ):
     """Get all content for current user"""
     query = db.query(Content).filter(Content.user_id == current_user.id)
-    
+
     if content_type:
         query = query.filter(Content.type == content_type)
-    
+
     content = query.order_by(Content.created_at.desc()).offset(skip).limit(limit).all()
     return content
 

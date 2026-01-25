@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
 import { PersonaProvider } from './contexts/PersonaContext'
 import { usePWA } from './hooks/usePWA'
+import ProtectedRoute from './components/ProtectedRoute'
 import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
@@ -22,7 +23,7 @@ const queryClient = new QueryClient()
 function App() {
   // Initialize PWA functionality
   usePWA()
-  
+
   return (
     <QueryClientProvider client={queryClient}>
       <PersonaProvider>
@@ -33,15 +34,15 @@ function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/signup" element={<SignupPage />} />
               <Route path="/shared/:shareToken" element={<SharedScriptPage />} />
-              <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/dashboard/script" element={<ScriptGeneratorPage />} />
-              <Route path="/dashboard/titles" element={<TitleGeneratorPage />} />
-              <Route path="/dashboard/thumbnails" element={<ThumbnailGeneratorPage />} />
-              <Route path="/dashboard/social" element={<SocialCaptionPage />} />
-              <Route path="/dashboard/seo" element={<SEOOptimizerPage />} />
-              <Route path="/dashboard/personas" element={<PersonasPage />} />
-              <Route path="/dashboard/marketplace" element={<MarketplacePage />} />
-              <Route path="/dashboard/courses" element={<CoursesPage />} />
+              <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+              <Route path="/dashboard/script" element={<ProtectedRoute><ScriptGeneratorPage /></ProtectedRoute>} />
+              <Route path="/dashboard/titles" element={<ProtectedRoute><TitleGeneratorPage /></ProtectedRoute>} />
+              <Route path="/dashboard/thumbnails" element={<ProtectedRoute><ThumbnailGeneratorPage /></ProtectedRoute>} />
+              <Route path="/dashboard/social" element={<ProtectedRoute><SocialCaptionPage /></ProtectedRoute>} />
+              <Route path="/dashboard/seo" element={<ProtectedRoute><SEOOptimizerPage /></ProtectedRoute>} />
+              <Route path="/dashboard/personas" element={<ProtectedRoute><PersonasPage /></ProtectedRoute>} />
+              <Route path="/dashboard/marketplace" element={<ProtectedRoute><MarketplacePage /></ProtectedRoute>} />
+              <Route path="/dashboard/courses" element={<ProtectedRoute><CoursesPage /></ProtectedRoute>} />
             </Routes>
             <Toaster position="top-right" />
           </div>

@@ -157,7 +157,7 @@ export default function CoursesPage() {
                 <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                   course.level === 'Beginner' ? 'bg-green-100 text-green-700' :
                   course.level === 'Intermediate' ? 'bg-blue-100 text-blue-700' :
-                  'bg-purple-100 text-purple-700'
+                  'bg-brand-100 text-brand-700'
                 }`}>
                   {course.level}
                 </span>

@@ -8,6 +8,7 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(true)
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -20,8 +21,8 @@ export default function LoginPage() {
       formData.append('username', email) // OAuth2 uses 'username' field for email
       formData.append('password', password)
 
-      // Call the actual login API
-      const response = await fetch(apiUrl('/api/v1/auth/login'), {
+      // Call the actual login API with remember_me parameter
+      const response = await fetch(apiUrl(`/api/v1/auth/login?remember_me=${rememberMe}`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded'
@@ -35,24 +36,27 @@ export default function LoginPage() {
       }
 
       const data = await response.json()
-      
-      // Save the token to localStorage
-      localStorage.setItem('token', data.access_token)
-      
+
+      // Save tokens based on "Remember me" preference
+      const storage = rememberMe ? localStorage : sessionStorage
+      storage.setItem('token', data.access_token)
+      storage.setItem('refresh_token', data.refresh_token)
+      storage.setItem('rememberMe', rememberMe.toString())
+
       // Fetch user info
       const userResponse = await fetch(apiUrl('/api/v1/auth/me'), {
         headers: {
           'Authorization': `Bearer ${data.access_token}`
         }
       })
-      
+
       if (userResponse.ok) {
         const userData = await userResponse.json()
-        localStorage.setItem('user', JSON.stringify(userData))
+        storage.setItem('user', JSON.stringify(userData))
       }
-      
-      console.log('[Login] Success! Token saved')
-      
+
+      console.log('[Login] Success! Token saved to', rememberMe ? 'localStorage' : 'sessionStorage')
+
       toast.success('Login successful!')
       navigate('/dashboard')
     } catch (error) {
@@ -64,19 +68,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
-      {/* Animated background */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
-        <div className="absolute top-40 right-10 w-72 h-72 bg-yellow-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
-        <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
-      </div>
-
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       {/* Login Card */}
       <div className="relative z-10 w-full max-w-md">
         <button
           onClick={() => navigate('/')}
-          className="flex items-center space-x-2 text-gray-600 hover:text-purple-600 mb-6 transition-colors"
+          className="flex items-center space-x-2 text-gray-600 hover:text-brand-600 mb-6 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
           <span>Back to home</span>
@@ -85,8 +82,8 @@ export default function LoginPage() {
         <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-2xl p-8 border border-white">
           {/* Logo */}
           <div className="flex items-center justify-center space-x-2 mb-8">
-            <Sparkles className="w-10 h-10 text-purple-600" />
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+            <Sparkles className="w-10 h-10 text-brand-600" />
+            <h1 className="text-3xl font-bold bg-brand-600 bg-clip-text text-transparent">
               CreatorX
             </h1>
           </div>
@@ -130,11 +127,16 @@ export default function LoginPage() {
             </div>
 
             <div className="flex items-center justify-between">
-              <label className="flex items-center">
-                <input type="checkbox" className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500" />
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-4 h-4 text-brand-600 border-gray-300 rounded focus:ring-brand-500 cursor-pointer"
+                />
                 <span className="ml-2 text-sm text-gray-600">Remember me</span>
               </label>
-              <a href="#" className="text-sm text-purple-600 hover:text-purple-700">
+              <a href="#" className="text-sm text-brand-600 hover:text-brand-700">
                 Forgot password?
               </a>
             </div>
@@ -142,7 +144,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-pink-700 transition-all transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 bg-brand-600 text-white rounded-lg font-semibold hover:bg-brand-700 transition-all transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
@@ -151,7 +153,7 @@ export default function LoginPage() {
           <div className="mt-6 text-center">
             <p className="text-gray-600">
               Don't have an account?{' '}
-              <Link to="/signup" className="text-purple-600 font-semibold hover:text-purple-700">
+              <Link to="/signup" className="text-brand-600 font-semibold hover:text-brand-700">
                 Sign up
               </Link>
             </p>

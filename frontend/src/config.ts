@@ -1,8 +1,9 @@
 // API configuration
-// Since nginx proxies /api/ to backend, we use the same origin
-const apiBaseUrl = typeof window !== 'undefined' && (window as any).VITE_API_BASE_URL 
-  ? (window as any).VITE_API_BASE_URL 
-  : '';
+// Development: Backend on localhost:8000
+// Production: nginx proxies /api/ to backend (same origin)
+const apiBaseUrl = import.meta.env.DEV
+  ? (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000')
+  : ''; // Production uses same origin (nginx proxy)
 
 export const API_BASE_URL = apiBaseUrl;
 

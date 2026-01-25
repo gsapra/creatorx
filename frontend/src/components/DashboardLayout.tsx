@@ -1,28 +1,30 @@
 import { ReactNode } from 'react'
-import { useNavigate, Link, useLocation } from 'react-router-dom'
-import { 
-  Sparkles, 
-  Home, 
-  FileText, 
-  Type, 
-  Image, 
-  Share2, 
-  TrendingUp, 
-  Users, 
-  BookOpen, 
+import { Link, useLocation } from 'react-router-dom'
+import {
+  Sparkles,
+  Home,
+  FileText,
+  Type,
+  Image,
+  Share2,
+  TrendingUp,
+  Users,
+  BookOpen,
   Settings,
   LogOut,
   Menu,
   X
 } from 'lucide-react'
 import { useState } from 'react'
+import { useAuth } from '../hooks/useAuth'
+import toast from 'react-hot-toast'
 
 interface DashboardLayoutProps {
   children: ReactNode
 }
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
-  const navigate = useNavigate()
+  const { logout } = useAuth()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -39,8 +41,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   ]
 
   const handleLogout = () => {
-    // Clear any auth tokens here
-    navigate('/')
+    logout()
+    toast.success('Logged out successfully')
   }
 
   return (
@@ -52,24 +54,24 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="lg:hidden text-gray-600 hover:text-purple-600"
+                className="lg:hidden text-neutral-600 hover:text-brand-600 transition-colors"
               >
                 {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
               </button>
               <Link to="/dashboard" className="flex items-center space-x-2">
-                <Sparkles className="w-8 h-8 text-purple-600" />
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                <Sparkles className="w-8 h-8 text-brand-600" />
+                <h1 className="text-2xl font-bold text-brand-600">
                   CreatorX
                 </h1>
               </Link>
             </div>
             <div className="flex items-center space-x-4">
-              <button className="p-2 text-gray-600 hover:text-purple-600 transition-colors">
+              <button className="p-2 text-neutral-600 hover:text-brand-600 transition-colors rounded-lg hover:bg-brand-50">
                 <Settings className="w-6 h-6" />
               </button>
               <button
                 onClick={handleLogout}
-                className="flex items-center space-x-2 px-4 py-2 text-gray-600 hover:text-red-600 transition-colors"
+                className="flex items-center space-x-2 px-4 py-2 text-neutral-600 hover:text-error transition-colors rounded-lg hover:bg-error/5"
               >
                 <LogOut className="w-5 h-5" />
                 <span>Logout</span>
@@ -84,7 +86,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <aside
           className={`${
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-          } lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-200 transition-transform duration-300 ease-in-out`}
+          } lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-30 w-64 bg-white border-r border-neutral-200 shadow-elevation-2 transition-transform duration-300 ease-in-out`}
         >
           <nav className="h-full overflow-y-auto p-4 space-y-2 mt-16 lg:mt-0">
             {menuItems.map((item) => {
@@ -96,8 +98,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   to={item.path}
                   className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all ${
                     isActive
-                      ? 'bg-purple-50 text-purple-600 font-semibold'
-                      : 'text-gray-700 hover:bg-gray-50'
+                      ? 'bg-brand-50 text-brand-700 font-semibold shadow-elevation-1'
+                      : 'text-neutral-700 hover:bg-neutral-50 hover:text-brand-600'
                   }`}
                 >
                   <Icon className="w-5 h-5" />

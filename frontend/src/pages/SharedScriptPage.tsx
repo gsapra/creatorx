@@ -77,9 +77,9 @@ export default function SharedScriptPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-brand-50 via-white to-pink-50 flex items-center justify-center">
         <div className="text-center">
-          <Loader className="w-12 h-12 animate-spin text-purple-600 mx-auto mb-4" />
+          <Loader className="w-12 h-12 animate-spin text-brand-600 mx-auto mb-4" />
           <p className="text-gray-600">Loading shared script...</p>
         </div>
       </div>
@@ -88,14 +88,14 @@ export default function SharedScriptPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-brand-50 via-white to-pink-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Script Not Found</h1>
           <p className="text-gray-600 mb-6">{error}</p>
           <button
             onClick={() => navigate('/')}
-            className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-pink-700 transition-all"
+            className="px-6 py-3 bg-brand-600 text-white rounded-lg font-semibold hover:bg-brand-700 transition-all"
           >
             Go to Homepage
           </button>
@@ -110,11 +110,11 @@ export default function SharedScriptPage() {
   const targetAudience = script?.meta_data?.target_audience
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50">
+    <div className="min-h-screen bg-gradient-to-br from-brand-50 via-white to-pink-50">
       <div className="max-w-4xl mx-auto p-6 py-12">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-600 to-pink-600 rounded-full mb-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-brand-600 to-pink-600 rounded-full mb-4">
             <FileText className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">{topic}</h1>
@@ -150,7 +150,7 @@ export default function SharedScriptPage() {
             <div className="flex gap-3">
               <button
                 onClick={copyToClipboard}
-                className="flex-1 py-2.5 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors flex items-center justify-center space-x-2"
+                className="flex-1 py-2.5 bg-brand-600 text-white rounded-lg font-semibold hover:bg-brand-700 transition-colors flex items-center justify-center space-x-2"
               >
                 {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 <span>{copied ? 'Copied!' : 'Copy Script'}</span>
@@ -171,7 +171,7 @@ export default function SharedScriptPage() {
           <p className="text-gray-600 mb-4">Want to create your own AI-powered scripts?</p>
           <button
             onClick={() => navigate('/')}
-            className="px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-semibold hover:from-purple-700 hover:to-pink-700 transition-all shadow-lg transform hover:scale-105"
+            className="px-8 py-3 bg-brand-600 text-white rounded-lg font-semibold hover:bg-brand-700 transition-all shadow-lg transform hover:scale-105"
           >
             Try CreatorX for Free
           </button>

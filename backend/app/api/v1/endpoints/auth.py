@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import verify_password, get_password_hash, create_access_token, create_refresh_token, decode_token
 from app.models.models import User
-from app.schemas.schemas import UserCreate, UserLogin, UserResponse, Token
+from app.schemas.schemas import UserCreate, UserLogin, UserResponse, Token, RefreshTokenRequest
 from datetime import timedelta
 
 router = APIRouter()
@@ -92,44 +92,48 @@ async def signup(user_data: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+async def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    remember_me: bool = False,
+    db: Session = Depends(get_db)
+):
     """Login user"""
     import logging
     logger = logging.getLogger(__name__)
-    
-    logger.info(f"Login attempt for email: {form_data.username}")
+
+    logger.info(f"Login attempt for email: {form_data.username} (remember_me: {remember_me})")
     user = db.query(User).filter(User.email == form_data.username).first()
-    
+
     if not user:
         logger.warning(f"User not found: {form_data.username}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password"
         )
-    
+
     logger.info(f"User found: {user.email}, checking password...")
     password_valid = verify_password(form_data.password, user.hashed_password)
     logger.info(f"Password verification result: {password_valid}")
-    
+
     if not password_valid:
         logger.warning(f"Invalid password for user: {form_data.username}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password"
         )
-    
+
     if not user.is_active:
         logger.warning(f"Inactive user attempted login: {form_data.username}")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Inactive user"
         )
-    
+
     logger.info(f"Login successful for user: {user.email}")
-    # Create tokens
+    # Create tokens with extended duration if remember_me is True
     access_token = create_access_token(data={"sub": str(user.id), "role": user.role})
-    refresh_token = create_refresh_token(data={"sub": str(user.id)})
-    
+    refresh_token = create_refresh_token(data={"sub": str(user.id)}, remember_me=remember_me)
+
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
@@ -144,28 +148,28 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
 
 
 @router.post("/refresh", response_model=Token)
-async def refresh_token(refresh_token: str, db: Session = Depends(get_db)):
+async def refresh_token(request: RefreshTokenRequest, db: Session = Depends(get_db)):
     """Refresh access token"""
-    payload = decode_token(refresh_token)
+    payload = decode_token(request.refresh_token)
     if not payload or payload.get("type") != "refresh":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid refresh token"
         )
-    
+
     user_id = payload.get("sub")
     user = db.query(User).filter(User.id == user_id).first()
-    
+
     if not user or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or inactive"
         )
-    
+
     # Create new tokens
     access_token = create_access_token(data={"sub": str(user.id), "role": user.role})
     new_refresh_token = create_refresh_token(data={"sub": str(user.id)})
-    
+
     return {
         "access_token": access_token,
         "refresh_token": new_refresh_token,
