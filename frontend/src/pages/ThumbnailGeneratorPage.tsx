@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import DashboardLayout from '../components/DashboardLayout'
 import ThumbnailImageViewer from '../components/ThumbnailImageViewer'
-import AdvancedThumbnailForm from '../components/AdvancedThumbnailForm'
-import { Image, Sparkles, Loader, Clock, Trash2, Grid3x3, Palette, TrendingUp, Zap, RefreshCw, X } from 'lucide-react'
+import { Image, Sparkles, Loader, Clock, Trash2, TrendingUp, RefreshCw, X, Check, ChevronDown, ChevronUp, Target, BarChart3, Lightbulb } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiPost } from '../services/api'
 import { apiUrl } from '../config'
@@ -31,7 +30,103 @@ interface ThumbnailTemplate {
   name?: string
   description?: string
   style?: string
+  qualityScore?: number // New: Overall quality score
 }
+
+interface ThumbnailStyle {
+  id: string
+  name: string
+  description: string
+  example: string
+  category: string
+  presets: {
+    emotion: string
+    color_scheme: string
+    font_style: string
+    layout_preference: string
+  }
+}
+
+const THUMBNAIL_STYLES: ThumbnailStyle[] = [
+  {
+    id: 'viral-shock',
+    name: 'Viral Shock',
+    description: 'High contrast, shocked expressions, bold text',
+    example: 'Perfect for reaction and surprise videos',
+    category: 'engagement',
+    presets: {
+      emotion: 'shocking',
+      color_scheme: 'high-contrast',
+      font_style: 'extra-bold',
+      layout_preference: 'face-dominant'
+    }
+  },
+  {
+    id: 'professional-clean',
+    name: 'Professional Clean',
+    description: 'Minimalist design, clear typography, elegant colors',
+    example: 'Best for tutorials and educational content',
+    category: 'professional',
+    presets: {
+      emotion: 'confident',
+      color_scheme: 'professional',
+      font_style: 'clean',
+      layout_preference: 'rule-of-thirds'
+    }
+  },
+  {
+    id: 'gaming-energy',
+    name: 'Gaming Energy',
+    description: 'Neon colors, dynamic poses, high energy',
+    example: 'Gaming, tech, and entertainment content',
+    category: 'gaming',
+    presets: {
+      emotion: 'exciting',
+      color_scheme: 'neon',
+      font_style: 'bold',
+      layout_preference: 'dynamic'
+    }
+  },
+  {
+    id: 'vlog-friendly',
+    name: 'Vlog Friendly',
+    description: 'Warm colors, approachable, casual feel',
+    example: 'Daily vlogs and lifestyle content',
+    category: 'casual',
+    presets: {
+      emotion: 'happy',
+      color_scheme: 'warm',
+      font_style: 'friendly',
+      layout_preference: 'centered'
+    }
+  },
+  {
+    id: 'dramatic-cinematic',
+    name: 'Dramatic Cinematic',
+    description: 'Dark backgrounds, dramatic lighting, movie-like',
+    example: 'Storytelling and cinematic content',
+    category: 'cinematic',
+    presets: {
+      emotion: 'intense',
+      color_scheme: 'dark',
+      font_style: 'bold',
+      layout_preference: 'cinematic'
+    }
+  },
+  {
+    id: 'curiosity-gap',
+    name: 'Curiosity Gap',
+    description: 'Mystery elements, question marks, intriguing setup',
+    example: 'Mystery, investigation, and reveal videos',
+    category: 'engagement',
+    presets: {
+      emotion: 'curious',
+      color_scheme: 'mysterious',
+      font_style: 'bold',
+      layout_preference: 'rule-of-thirds'
+    }
+  }
+]
 
 interface HistoryItem {
   id: string
@@ -54,7 +149,7 @@ export default function ThumbnailGeneratorPage() {
   const [formData, setFormData] = useState({
     videoTitle: '',
     videoTopic: '',
-    count: 3,
+    count: 1, // Fixed to 1 variant only
     style: 'bold',
     emotion: 'exciting',
     include_face: true,
@@ -78,10 +173,44 @@ export default function ThumbnailGeneratorPage() {
   const [showHistory, setShowHistory] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [uploadedImages, setUploadedImages] = useState<any[]>([])
   const [showRefineModal, setShowRefineModal] = useState(false)
   const [refineFeedback, setRefineFeedback] = useState('')
   const [refining, setRefining] = useState(false)
+  const [showStyles, setShowStyles] = useState(false)
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [selectedStylePreset, setSelectedStylePreset] = useState<string | null>(null)
+
+  // Calculate quality score for thumbnails
+  const calculateQualityScore = (template: ThumbnailTemplate): number => {
+    let score = 60 // Base score
+
+    // CTR score contribution (40% weight)
+    if (template.ctr_score) {
+      score += (template.ctr_score / 100) * 40
+    }
+
+    // Mobile optimization (10% weight)
+    if (template.optimized_for_mobile) {
+      score += 10
+    }
+
+    // Has emotion (10% weight)
+    if (template.emotion) {
+      score += 10
+    }
+
+    // Has color scheme (10% weight)
+    if (template.color_scheme) {
+      score += 10
+    }
+
+    // Prompt quality - longer prompts tend to be more detailed (10% weight)
+    if (template.prompt && template.prompt.length > 100) {
+      score += 10
+    }
+
+    return Math.min(100, Math.round(score))
+  }
 
   // Load history from backend
   useEffect(() => {
@@ -107,7 +236,10 @@ export default function ThumbnailGeneratorPage() {
               id: item.id.toString(),
               title: item.meta_data?.video_title || 'Untitled',
               topic: item.meta_data?.video_topic || '',
-              templates: item.meta_data?.templates || [],
+              templates: (item.meta_data?.templates || []).map((t: any) => ({
+                ...t,
+                qualityScore: calculateQualityScore(t)
+              })),
               timestamp: new Date(item.created_at)
             }))
             .sort((a: HistoryItem, b: HistoryItem) => b.timestamp.getTime() - a.timestamp.getTime())
@@ -122,6 +254,22 @@ export default function ThumbnailGeneratorPage() {
     loadHistory()
   }, [])
 
+  const applyStylePreset = (styleId: string) => {
+    const style = THUMBNAIL_STYLES.find(s => s.id === styleId)
+    if (!style) return
+
+    setFormData({
+      ...formData,
+      emotion: style.presets.emotion,
+      color_scheme: style.presets.color_scheme,
+      font_style: style.presets.font_style,
+      layout_preference: style.presets.layout_preference,
+      style: styleId
+    })
+    setSelectedStylePreset(styleId)
+    toast.success(`${style.name} style applied!`)
+  }
+
   const handleGenerate = async () => {
     if (!formData.videoTitle || !formData.videoTopic) {
       toast.error('Please fill in all fields')
@@ -131,16 +279,12 @@ export default function ThumbnailGeneratorPage() {
     setLoading(true)
 
     try {
-      // Separate uploaded images into use vs reference
-      const imagesToUse = uploadedImages.filter(img => !img.isReference)
-      const referenceImages = uploadedImages.filter(img => img.isReference)
-
       const requestBody = {
         video_title: formData.videoTitle,
         video_topic: formData.videoTopic,
         count: parseInt(formData.count.toString(), 10),
         style: formData.style,
-        ai_model: 'openai',
+        ai_model: 'openai', // Hardcoded to use DALL-E
         persona_id: null,
         // Advanced parameters
         emotion: formData.emotion,
@@ -156,30 +300,10 @@ export default function ThumbnailGeneratorPage() {
         optimize_for_mobile: formData.optimize_for_mobile,
         include_arrow: formData.include_arrow,
         include_circle: formData.include_circle,
-        target_platform: formData.target_platform,
-        // Image data
-        custom_images: imagesToUse.length > 0 ? imagesToUse.map(img => ({
-          id: img.id,
-          url: img.url,
-          base64_data: img.base64_data,
-          width: img.width,
-          height: img.height
-        })) : null,
-        reference_images: referenceImages.length > 0 ? referenceImages.map(img => ({
-          id: img.id,
-          url: img.url,
-          base64_data: img.base64_data,
-          width: img.width,
-          height: img.height
-        })) : null,
-        use_uploaded_image: imagesToUse.length > 0
+        target_platform: formData.target_platform
       }
 
-      console.log('[Thumbnail Generation] Advanced Request with images:', {
-        ...requestBody,
-        custom_images: imagesToUse.length,
-        reference_images: referenceImages.length
-      })
+      console.log('[Thumbnail Generation] Advanced Request:', requestBody)
       const response = await apiPost('/api/v1/creator-tools/generate-thumbnail-ideas', requestBody)
 
       if (!response.ok) {
@@ -191,22 +315,28 @@ export default function ThumbnailGeneratorPage() {
       // Handle both new format (thumbnails) and old format (templates with layers)
       let generatedTemplates = data.meta_data?.templates || data.thumbnails || []
 
-      // Convert to new format if needed
-      generatedTemplates = generatedTemplates.map((t: any) => ({
-        id: t.id,
-        title: t.title || formData.videoTitle,
-        image_url: t.image_url || '',
-        base64_data: t.base64_data || '',
-        prompt: t.prompt || '',
-        emotion: t.emotion || formData.emotion,
-        color_scheme: t.color_scheme || formData.color_scheme,
-        layout: t.layout || formData.layout_preference,
-        ctr_score: t.ctr_score,
-        optimized_for_mobile: t.optimized_for_mobile || formData.optimize_for_mobile,
-        platform: t.platform || formData.target_platform,
-        variation: t.variation,
-        uploaded_layers: t.uploaded_layers || [] // Pass through uploaded layers
-      }))
+      // Convert to new format if needed and add quality scores
+      generatedTemplates = generatedTemplates.map((t: any) => {
+        const template = {
+          id: t.id,
+          title: t.title || formData.videoTitle,
+          image_url: t.image_url || '',
+          base64_data: t.base64_data || '',
+          prompt: t.prompt || '',
+          emotion: t.emotion || formData.emotion,
+          color_scheme: t.color_scheme || formData.color_scheme,
+          layout: t.layout || formData.layout_preference,
+          ctr_score: t.ctr_score,
+          optimized_for_mobile: t.optimized_for_mobile || formData.optimize_for_mobile,
+          platform: t.platform || formData.target_platform,
+          variation: t.variation,
+          uploaded_layers: t.uploaded_layers || []
+        }
+        return {
+          ...template,
+          qualityScore: calculateQualityScore(template)
+        }
+      })
 
       setTemplates(generatedTemplates)
       if (generatedTemplates.length > 0) {
@@ -223,10 +353,10 @@ export default function ThumbnailGeneratorPage() {
       }
       setHistory([newHistoryItem, ...history])
 
-      toast.success('Thumbnails generated! Click to edit.')
+      toast.success('Thumbnail generated successfully!')
     } catch (error) {
       console.error('Thumbnail generation error:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Failed to generate thumbnails'
+      const errorMessage = error instanceof Error ? error.message : 'Failed to generate thumbnail'
       toast.error(errorMessage)
     } finally {
       setLoading(false)
@@ -237,17 +367,17 @@ export default function ThumbnailGeneratorPage() {
     setFormData({
       videoTitle: item.title,
       videoTopic: item.topic,
-      count: item.templates.length,
+      count: 1, // Fixed to 1 variant
       style: item.templates[0]?.style || 'bold',
-      emotion: 'exciting',
+      emotion: item.templates[0]?.emotion || 'exciting',
       include_face: true,
       face_expression: 'excited',
-      color_scheme: 'vibrant',
+      color_scheme: item.templates[0]?.color_scheme || 'vibrant',
       use_gradient: false,
       font_style: 'bold',
       text_emphasis: 'statement',
       include_emoji: false,
-      layout_preference: 'rule-of-thirds',
+      layout_preference: item.templates[0]?.layout || 'rule-of-thirds',
       text_position: 'center',
       optimize_for_mobile: true,
       include_arrow: false,
@@ -276,16 +406,12 @@ export default function ThumbnailGeneratorPage() {
     setRefining(true)
 
     try {
-      // Separate uploaded images into use vs reference
-      const imagesToUse = uploadedImages.filter(img => !img.isReference)
-      const referenceImages = uploadedImages.filter(img => img.isReference)
-
       const requestBody = {
         video_title: formData.videoTitle,
         video_topic: formData.videoTopic,
         count: 1, // Only refine 1 image
         style: formData.style,
-        ai_model: 'openai',
+        ai_model: 'openai', // Hardcoded to use DALL-E
         persona_id: null,
         // Pass all the same parameters
         emotion: formData.emotion,
@@ -302,22 +428,6 @@ export default function ThumbnailGeneratorPage() {
         include_arrow: formData.include_arrow,
         include_circle: formData.include_circle,
         target_platform: formData.target_platform,
-        // Image data
-        custom_images: imagesToUse.length > 0 ? imagesToUse.map(img => ({
-          id: img.id,
-          url: img.url,
-          base64_data: img.base64_data,
-          width: img.width,
-          height: img.height
-        })) : null,
-        reference_images: referenceImages.length > 0 ? referenceImages.map(img => ({
-          id: img.id,
-          url: img.url,
-          base64_data: img.base64_data,
-          width: img.width,
-          height: img.height
-        })) : null,
-        use_uploaded_image: imagesToUse.length > 0,
         // Refinement feedback
         refinement_feedback: refineFeedback,
         previous_prompt: selectedTemplate.prompt || ''
@@ -335,21 +445,27 @@ export default function ThumbnailGeneratorPage() {
       let refinedTemplates = data.meta_data?.templates || data.thumbnails || []
 
       // Convert to new format if needed
-      refinedTemplates = refinedTemplates.map((t: any) => ({
-        id: t.id,
-        title: t.title || formData.videoTitle,
-        image_url: t.image_url || '',
-        base64_data: t.base64_data || '',
-        prompt: t.prompt || '',
-        emotion: t.emotion || formData.emotion,
-        color_scheme: t.color_scheme || formData.color_scheme,
-        layout: t.layout || formData.layout_preference,
-        ctr_score: t.ctr_score,
-        optimized_for_mobile: t.optimized_for_mobile || formData.optimize_for_mobile,
-        platform: t.platform || formData.target_platform,
-        variation: t.variation,
-        uploaded_layers: t.uploaded_layers || [] // Preserve uploaded layers
-      }))
+      refinedTemplates = refinedTemplates.map((t: any) => {
+        const template = {
+          id: t.id,
+          title: t.title || formData.videoTitle,
+          image_url: t.image_url || '',
+          base64_data: t.base64_data || '',
+          prompt: t.prompt || '',
+          emotion: t.emotion || formData.emotion,
+          color_scheme: t.color_scheme || formData.color_scheme,
+          layout: t.layout || formData.layout_preference,
+          ctr_score: t.ctr_score,
+          optimized_for_mobile: t.optimized_for_mobile || formData.optimize_for_mobile,
+          platform: t.platform || formData.target_platform,
+          variation: t.variation,
+          uploaded_layers: t.uploaded_layers || []
+        }
+        return {
+          ...template,
+          qualityScore: calculateQualityScore(template)
+        }
+      })
 
       if (refinedTemplates.length > 0) {
         // Replace the selected template with the refined one
@@ -393,14 +509,20 @@ export default function ThumbnailGeneratorPage() {
 
       const newHistory = history.filter(item => item.id !== id)
       setHistory(newHistory)
-      toast.success('Thumbnails deleted')
+      toast.success('Thumbnail deleted')
     } catch (error) {
       console.error('Failed to delete history item:', error)
-      toast.error('Failed to delete thumbnails')
+      toast.error('Failed to delete thumbnail')
     } finally {
       setDeletingId(null)
       setDeleteConfirm(null)
     }
+  }
+
+  const getQualityScoreColor = (score: number) => {
+    if (score >= 85) return 'text-green-600 bg-green-100'
+    if (score >= 70) return 'text-yellow-600 bg-yellow-100'
+    return 'text-orange-600 bg-orange-100'
   }
 
   return (
@@ -411,13 +533,27 @@ export default function ThumbnailGeneratorPage() {
             <Image className="w-8 h-8 text-blue-600" />
             <h1 className="text-3xl font-bold text-gray-900">Thumbnail Creator</h1>
           </div>
-          <button
-            onClick={() => setShowHistory(!showHistory)}
-            className="flex items-center space-x-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-          >
-            <Clock className="w-5 h-5" />
-            <span>History ({history.length})</span>
-          </button>
+          <div className="flex items-center space-x-3">
+            {templates.length > 0 && (
+              <button
+                onClick={() => {
+                  setTemplates([])
+                  setSelectedTemplate(null)
+                }}
+                className="flex items-center space-x-2 px-4 py-2 bg-brand-600 text-white rounded-lg transition-colors hover:bg-brand-700 font-medium"
+              >
+                <Sparkles className="w-5 h-5" />
+                <span>Generate New</span>
+              </button>
+            )}
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className="flex items-center space-x-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+            >
+              <Clock className="w-5 h-5" />
+              <span>History ({history.length})</span>
+            </button>
+          </div>
         </div>
 
         {showHistory && (
@@ -426,7 +562,7 @@ export default function ThumbnailGeneratorPage() {
               <>
                 <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-cyan-50">
                   <h3 className="font-bold text-gray-900 text-lg">Thumbnail History</h3>
-                  <p className="text-sm text-gray-600 mt-1">{history.length} saved thumbnail sets</p>
+                  <p className="text-sm text-gray-600 mt-1">{history.length} saved thumbnails</p>
                 </div>
                 <div className="max-h-[500px] overflow-y-auto">
                   <div className="divide-y divide-gray-100">
@@ -445,9 +581,16 @@ export default function ThumbnailGeneratorPage() {
                                 {item.title}
                               </h4>
                               <div className="flex flex-wrap gap-2 text-xs text-gray-600 mb-2">
-                                <span className="px-2 py-1 bg-gray-100 rounded-full">
-                                  🎨 {item.templates.length} templates
-                                </span>
+                                {item.templates.length > 0 && item.templates[0]?.qualityScore && (
+                                  <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full">
+                                    Quality: {item.templates[0].qualityScore}/100
+                                  </span>
+                                )}
+                                {item.templates.length > 0 && item.templates[0]?.ctr_score && (
+                                  <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
+                                    CTR: {item.templates[0].ctr_score}%
+                                  </span>
+                                )}
                                 <span className="px-2 py-1 bg-gray-100 rounded-full">
                                   📝 {item.topic}
                                 </span>
@@ -463,7 +606,7 @@ export default function ThumbnailGeneratorPage() {
                               }}
                               disabled={deletingId === item.id}
                               className="flex-shrink-0 p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                              title="Delete thumbnails"
+                              title="Delete thumbnail"
                             >
                               {deletingId === item.id ? (
                                 <Loader className="w-4 h-4 animate-spin" />
@@ -478,7 +621,7 @@ export default function ThumbnailGeneratorPage() {
                         {deleteConfirm === item.id && (
                           <div className="absolute inset-0 bg-white bg-opacity-95 backdrop-blur-sm flex items-center justify-center z-10">
                             <div className="bg-white p-4 rounded-lg shadow-xl border border-gray-200 max-w-sm mx-4">
-                              <p className="text-sm font-medium text-gray-900 mb-3">Delete these thumbnails?</p>
+                              <p className="text-sm font-medium text-gray-900 mb-3">Delete this thumbnail?</p>
                               <p className="text-xs text-gray-600 mb-4">This action cannot be undone.</p>
                               <div className="flex space-x-2">
                                 <button
@@ -511,100 +654,453 @@ export default function ThumbnailGeneratorPage() {
                   <Clock className="w-8 h-8 text-blue-600" />
                 </div>
                 <h3 className="font-semibold text-gray-900 mb-2">No thumbnail history yet</h3>
-                <p className="text-sm text-gray-600">Generate your first thumbnails to see them here</p>
+                <p className="text-sm text-gray-600">Generate your first thumbnail to see it here</p>
               </div>
             )}
           </div>
         )}
 
         {!selectedTemplate ? (
-          <div className="grid lg:grid-cols-3 gap-6">
-            <AdvancedThumbnailForm
-              formData={formData}
-              onChange={setFormData}
-              onGenerate={handleGenerate}
-              loading={loading}
-              uploadedImages={uploadedImages}
-              onImagesChange={setUploadedImages}
-            />
+          <div className="max-w-5xl mx-auto">
+            {/* Input Form */}
+            <div className="bg-white rounded-2xl p-8 border border-gray-100 shadow-sm space-y-6">
+              {/* Header */}
+              <div className="text-center mb-8">
+                <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl mb-4 shadow-lg">
+                  <Image className="w-7 h-7 text-white" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Create Eye-Catching Thumbnails</h2>
+                <p className="text-gray-600 text-sm">Generate high-CTR thumbnail concepts with AI-powered optimization</p>
+              </div>
 
-            <div className="lg:col-span-2 bg-white rounded-xl p-6 border border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Thumbnail Templates</h2>
-              {templates.length > 0 ? (
-                <div className="grid grid-cols-2 gap-4">
-                  {templates.map((template, index) => (
-                    <div
-                      key={template.id}
-                      onClick={() => setSelectedTemplate(template)}
-                      className="group relative rounded-xl border-2 border-gray-200 hover:border-blue-400 cursor-pointer transition-all hover:shadow-2xl overflow-hidden"
-                    >
-                      {/* Thumbnail Image */}
-                      <div className="relative aspect-video bg-gray-900">
-                        <img
-                          src={template.base64_data || template.image_url}
-                          alt={template.title || `Thumbnail ${index + 1}`}
-                          className="w-full h-full object-cover"
-                        />
+              {/* Video Title */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Video Title *
+                </label>
+                <p className="text-xs text-gray-600 mb-3">
+                  💡 Your actual video title - this will appear on the thumbnail
+                </p>
+                <input
+                  type="text"
+                  value={formData.videoTitle}
+                  onChange={(e) => setFormData({ ...formData, videoTitle: e.target.value })}
+                  placeholder="e.g., I Tested 100 Productivity Apps - Here's The BEST One"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-0 transition-colors text-gray-900 placeholder-gray-400"
+                />
+              </div>
 
-                        {/* Overlay on hover */}
-                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center">
-                          <button className="opacity-0 group-hover:opacity-100 transition-opacity px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold shadow-lg">
-                            View & Download
-                          </button>
+              {/* Video Topic */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Video Topic/Description *
+                </label>
+                <p className="text-xs text-gray-600 mb-3">
+                  📝 Describe what your video is about for better thumbnail concepts
+                </p>
+                <textarea
+                  value={formData.videoTopic}
+                  onChange={(e) => setFormData({ ...formData, videoTopic: e.target.value })}
+                  placeholder="e.g., Testing and reviewing 100 different productivity apps to find the absolute best one for different use cases"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-0 transition-colors text-gray-900 placeholder-gray-400 min-h-[80px] resize-none"
+                />
+              </div>
+
+              {/* Thumbnail Style Presets (Collapsible) */}
+              <div>
+                <button
+                  onClick={() => setShowStyles(!showStyles)}
+                  className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl border-2 border-blue-100 hover:border-blue-200 transition-colors"
+                >
+                  <div className="flex items-center space-x-2">
+                    <Target className="w-5 h-5 text-blue-600" />
+                    <span className="font-semibold text-gray-900">Thumbnail Styles (Optional)</span>
+                    {selectedStylePreset && (
+                      <span className="px-2 py-0.5 bg-blue-600 text-white text-xs rounded-full">
+                        {THUMBNAIL_STYLES.find(s => s.id === selectedStylePreset)?.name}
+                      </span>
+                    )}
+                  </div>
+                  {showStyles ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </button>
+
+                {showStyles && (
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {THUMBNAIL_STYLES.map(style => (
+                      <div
+                        key={style.id}
+                        onClick={() => applyStylePreset(style.id)}
+                        className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                          selectedStylePreset === style.id
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 hover:border-blue-300'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <h4 className="font-semibold text-gray-900 text-sm">{style.name}</h4>
+                          {selectedStylePreset === style.id && (
+                            <Check className="w-4 h-4 text-blue-600" />
+                          )}
                         </div>
-
-                        {/* CTR Score Badge */}
-                        {template.ctr_score && (
-                          <div className="absolute top-2 right-2 flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-full text-xs font-bold shadow-lg">
-                            <TrendingUp className="w-3 h-3" />
-                            {template.ctr_score.toFixed(0)}% CTR
-                          </div>
-                        )}
-
-                        {/* Variation Badge */}
-                        <div className="absolute top-2 left-2 px-2 py-1 bg-black bg-opacity-70 text-white rounded-full text-xs font-semibold">
-                          #{index + 1}
-                        </div>
+                        <p className="text-xs text-gray-600 mb-2">{style.description}</p>
+                        <p className="text-xs text-blue-700 italic">{style.example}</p>
                       </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-                      {/* Metadata */}
-                      <div className="p-3 bg-white">
-                        <div className="flex flex-wrap gap-1.5">
-                          {template.emotion && (
-                            <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium capitalize">
-                              {template.emotion}
-                            </span>
-                          )}
-                          {template.color_scheme && (
-                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium capitalize">
-                              {template.color_scheme}
-                            </span>
-                          )}
-                          {template.optimized_for_mobile && (
-                            <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">
-                              📱 Mobile
-                            </span>
-                          )}
-                        </div>
+              {/* Advanced Options (Collapsible) */}
+              <div>
+                <button
+                  onClick={() => setShowAdvanced(!showAdvanced)}
+                  className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-xl border-2 border-gray-200 hover:border-gray-300 transition-colors"
+                >
+                  <div className="flex items-center space-x-2">
+                    <BarChart3 className="w-5 h-5 text-gray-600" />
+                    <span className="font-semibold text-gray-900">Advanced Options</span>
+                  </div>
+                  {showAdvanced ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </button>
+
+                {showAdvanced && (
+                  <div className="mt-4 space-y-4 p-4 border-2 border-gray-200 rounded-xl">
+                    {/* Emotion Selector */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Target Emotion
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { value: 'shocking', label: '😱 Shocking', description: 'Wide-eyed shock, high contrast' },
+                          { value: 'curious', label: '🤔 Curious', description: 'Intriguing, mysterious' },
+                          { value: 'exciting', label: '🎉 Exciting', description: 'Energetic, dynamic' },
+                          { value: 'inspiring', label: '✨ Inspiring', description: 'Motivational, aspirational' },
+                          { value: 'educational', label: '📚 Educational', description: 'Clear, informative' },
+                          { value: 'entertaining', label: '😄 Entertaining', description: 'Fun, playful' }
+                        ].map(emotion => (
+                          <button
+                            key={emotion.value}
+                            onClick={() => setFormData({ ...formData, emotion: emotion.value })}
+                            className={`p-3 rounded-lg border-2 transition-all text-left ${
+                              formData.emotion === emotion.value
+                                ? 'border-blue-500 bg-blue-50'
+                                : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                          >
+                            <div className="font-semibold text-sm">{emotion.label}</div>
+                            <div className="text-xs text-gray-600">{emotion.description}</div>
+                          </button>
+                        ))}
                       </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-                  <Grid3x3 className="w-16 h-16 mb-4" />
-                  <p>Your thumbnail templates will appear here</p>
-                  <p className="text-sm mt-2">Generate thumbnails to start editing</p>
-                </div>
-              )}
+
+                    {/* Color Scheme */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Color Scheme
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { value: 'vibrant', label: 'Vibrant', colors: ['#FF0000', '#FFFF00', '#00FF00'] },
+                          { value: 'pastel', label: 'Pastel', colors: ['#FFE5E5', '#FFD3E0', '#E8DFF5'] },
+                          { value: 'dark', label: 'Dark', colors: ['#000000', '#1A1A2E', '#2D3142'] },
+                          { value: 'neon', label: 'Neon', colors: ['#00F0FF', '#FF00FF', '#00FF85'] },
+                          { value: 'monochrome', label: 'Monochrome', colors: ['#FFFFFF', '#000000', '#888888'] },
+                          { value: 'complementary', label: 'Complementary', colors: ['#0066CC', '#FF9900', '#FFFFFF'] }
+                        ].map(scheme => (
+                          <button
+                            key={scheme.value}
+                            onClick={() => setFormData({ ...formData, color_scheme: scheme.value })}
+                            className={`p-3 rounded-lg border-2 transition-all ${
+                              formData.color_scheme === scheme.value
+                                ? 'border-blue-500 bg-blue-50'
+                                : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                          >
+                            <div className="text-sm font-medium mb-2">{scheme.label}</div>
+                            <div className="flex gap-1">
+                              {scheme.colors.map((color, i) => (
+                                <div
+                                  key={i}
+                                  className="w-6 h-6 rounded"
+                                  style={{ backgroundColor: color }}
+                                />
+                              ))}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Quick Options */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="flex items-center space-x-2 p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-gray-300">
+                        <input
+                          type="checkbox"
+                          checked={formData.include_face}
+                          onChange={(e) => setFormData({ ...formData, include_face: e.target.checked })}
+                          className="rounded"
+                        />
+                        <span className="text-sm font-medium">Include Face/Person</span>
+                      </label>
+
+                      <label className="flex items-center space-x-2 p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-gray-300">
+                        <input
+                          type="checkbox"
+                          checked={formData.include_emoji}
+                          onChange={(e) => setFormData({ ...formData, include_emoji: e.target.checked })}
+                          className="rounded"
+                        />
+                        <span className="text-sm font-medium">Include Emoji</span>
+                      </label>
+
+                      <label className="flex items-center space-x-2 p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-gray-300">
+                        <input
+                          type="checkbox"
+                          checked={formData.include_arrow}
+                          onChange={(e) => setFormData({ ...formData, include_arrow: e.target.checked })}
+                          className="rounded"
+                        />
+                        <span className="text-sm font-medium">Add Arrow</span>
+                      </label>
+
+                      <label className="flex items-center space-x-2 p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-gray-300">
+                        <input
+                          type="checkbox"
+                          checked={formData.include_circle}
+                          onChange={(e) => setFormData({ ...formData, include_circle: e.target.checked })}
+                          className="rounded"
+                        />
+                        <span className="text-sm font-medium">Add Circle Highlight</span>
+                      </label>
+                    </div>
+
+                    {/* Face Expression */}
+                    {formData.include_face && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Face Expression
+                        </label>
+                        <select
+                          value={formData.face_expression}
+                          onChange={(e) => setFormData({ ...formData, face_expression: e.target.value })}
+                          className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-0"
+                        >
+                          <option value="shocked">😱 Shocked</option>
+                          <option value="happy">😄 Happy</option>
+                          <option value="serious">😐 Serious</option>
+                          <option value="curious">🤔 Curious</option>
+                          <option value="excited">🤩 Excited</option>
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Layout & Text Options */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Layout
+                        </label>
+                        <select
+                          value={formData.layout_preference}
+                          onChange={(e) => setFormData({ ...formData, layout_preference: e.target.value })}
+                          className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-0"
+                        >
+                          <option value="centered">Centered</option>
+                          <option value="split">Split Screen</option>
+                          <option value="rule-of-thirds">Rule of Thirds</option>
+                          <option value="asymmetric">Asymmetric</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Font Style
+                        </label>
+                        <select
+                          value={formData.font_style}
+                          onChange={(e) => setFormData({ ...formData, font_style: e.target.value })}
+                          className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-0"
+                        >
+                          <option value="bold">Bold (Impact)</option>
+                          <option value="clean">Clean (Helvetica)</option>
+                          <option value="modern">Modern (Verdana)</option>
+                          <option value="retro">Retro (Courier)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Additional Options */}
+                    <div className="space-y-2">
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={formData.use_gradient}
+                          onChange={(e) => setFormData({ ...formData, use_gradient: e.target.checked })}
+                          className="rounded"
+                        />
+                        <span className="text-sm">Use Gradient Backgrounds</span>
+                      </label>
+
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={formData.optimize_for_mobile}
+                          onChange={(e) => setFormData({ ...formData, optimize_for_mobile: e.target.checked })}
+                          className="rounded"
+                        />
+                        <span className="text-sm">Optimize for Mobile (Recommended)</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Generate Button */}
+              <button
+                onClick={handleGenerate}
+                disabled={loading}
+                className="w-full py-4 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl font-semibold hover:from-blue-700 hover:to-cyan-700 transition-all transform hover:scale-[1.02] shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 text-base"
+              >
+                {loading ? (
+                  <>
+                    <Loader className="w-5 h-5 animate-spin" />
+                    <span>Generating thumbnail...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-5 h-5" />
+                    <span>Generate Thumbnail</span>
+                  </>
+                )}
+              </button>
             </div>
+
+            {/* Generated Thumbnail */}
+            {templates.length > 0 && (
+              <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm mt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold text-gray-900">Generated Thumbnail</h2>
+                </div>
+
+                {/* Quality Summary */}
+                {templates[0] && (
+                  <div className="grid grid-cols-3 gap-3 mb-6 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-blue-600">
+                        {templates[0].qualityScore || 0}
+                      </div>
+                      <div className="text-xs text-gray-600">Quality Score</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-cyan-600">
+                        {templates[0].ctr_score ? `${templates[0].ctr_score}%` : 'N/A'}
+                      </div>
+                      <div className="text-xs text-gray-600">CTR Score</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">
+                        {templates[0].optimized_for_mobile ? '✓' : '✗'}
+                      </div>
+                      <div className="text-xs text-gray-600">Mobile Optimized</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Thumbnail Display */}
+                {templates[0] && (
+                  <div
+                    onClick={() => setSelectedTemplate(templates[0])}
+                    className="group relative rounded-xl border-2 border-gray-200 hover:border-blue-400 cursor-pointer transition-all hover:shadow-2xl overflow-hidden"
+                  >
+                    {/* Thumbnail Image */}
+                    <div className="relative aspect-video bg-gray-900">
+                      <img
+                        src={templates[0].base64_data || templates[0].image_url}
+                        alt={templates[0].title || 'Generated Thumbnail'}
+                        className="w-full h-full object-cover"
+                      />
+
+                      {/* Overlay on hover */}
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all flex items-center justify-center">
+                        <button className="opacity-0 group-hover:opacity-100 transition-opacity px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg font-semibold shadow-lg">
+                          View & Edit
+                        </button>
+                      </div>
+
+                      {/* Quality Score Badge */}
+                      {templates[0].qualityScore && (
+                        <div className={`absolute top-2 left-2 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold shadow-lg ${getQualityScoreColor(templates[0].qualityScore)}`}>
+                          <BarChart3 className="w-3 h-3" />
+                          {templates[0].qualityScore}/100
+                        </div>
+                      )}
+
+                      {/* CTR Score Badge */}
+                      {templates[0].ctr_score && (
+                        <div className="absolute top-2 right-2 flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-full text-xs font-bold shadow-lg">
+                          <TrendingUp className="w-3 h-3" />
+                          {templates[0].ctr_score.toFixed(0)}% CTR
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Metadata */}
+                    <div className="p-4 bg-white">
+                      <div className="flex flex-wrap gap-2">
+                        {templates[0].emotion && (
+                          <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium capitalize">
+                            {templates[0].emotion}
+                          </span>
+                        )}
+                        {templates[0].color_scheme && (
+                          <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium capitalize">
+                            {templates[0].color_scheme}
+                          </span>
+                        )}
+                        {templates[0].optimized_for_mobile && (
+                          <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
+                            📱 Mobile Optimized
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* CTR Tips */}
+                <div className="mt-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                  <div className="flex items-start space-x-2">
+                    <Lightbulb className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <h4 className="font-semibold text-green-900 mb-1">Tips for Better Thumbnails</h4>
+                      <ul className="text-sm text-green-800 space-y-1">
+                        <li>• Use contrasting colors to make text stand out</li>
+                        <li>• Include faces with clear expressions when relevant</li>
+                        <li>• Keep text large and readable on mobile devices</li>
+                        <li>• Test multiple variations to see what works best</li>
+                        <li>• Use arrows and circles sparingly to draw attention</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="bg-white rounded-xl p-6 border border-gray-200">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">{selectedTemplate.title}</h2>
-                <p className="text-sm text-gray-600 mt-1">AI-Generated Thumbnail • Variation #{templates.findIndex(t => t.id === selectedTemplate.id) + 1}</p>
+                <p className="text-sm text-gray-600 mt-1">
+                  AI-Generated Thumbnail • Variation #{templates.findIndex(t => t.id === selectedTemplate.id) + 1}
+                  {selectedTemplate.qualityScore && (
+                    <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-medium ${getQualityScoreColor(selectedTemplate.qualityScore)}`}>
+                      Quality: {selectedTemplate.qualityScore}/100
+                    </span>
+                  )}
+                </p>
               </div>
               <div className="flex gap-2">
                 <button
@@ -687,36 +1183,27 @@ export default function ThumbnailGeneratorPage() {
 
                 {/* Example Refinements */}
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm font-semibold text-blue-900 mb-2">💡 Refinement Examples:</p>
-                  <div className="space-y-1.5 text-sm text-blue-800">
-                    <button
-                      onClick={() => setRefineFeedback('Make the text much larger and more bold with a strong outline')}
-                      className="block w-full text-left hover:bg-blue-100 px-2 py-1 rounded transition-colors"
-                      disabled={refining}
-                    >
-                      • Make the text much larger and more bold
-                    </button>
-                    <button
-                      onClick={() => setRefineFeedback('Change background to vibrant red and yellow colors')}
-                      className="block w-full text-left hover:bg-blue-100 px-2 py-1 rounded transition-colors"
-                      disabled={refining}
-                    >
-                      • Change to vibrant red and yellow colors
-                    </button>
-                    <button
-                      onClick={() => setRefineFeedback('Add a more shocked and surprised facial expression')}
-                      className="block w-full text-left hover:bg-blue-100 px-2 py-1 rounded transition-colors"
-                      disabled={refining}
-                    >
-                      • Add more shocked expression
-                    </button>
-                    <button
-                      onClick={() => setRefineFeedback('Make the overall design more dramatic and eye-catching')}
-                      className="block w-full text-left hover:bg-blue-100 px-2 py-1 rounded transition-colors"
-                      disabled={refining}
-                    >
-                      • Make more dramatic and eye-catching
-                    </button>
+                  <p className="text-sm font-semibold text-blue-900 mb-2">💡 Quick Refinement Suggestions:</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      'Make text much larger and bolder',
+                      'Change to vibrant red/yellow colors',
+                      'Add more shocked expression',
+                      'Make more dramatic and eye-catching',
+                      'Simplify the design',
+                      'Add neon glow effects',
+                      'Make face more prominent',
+                      'Increase color saturation'
+                    ].map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        onClick={() => setRefineFeedback(suggestion)}
+                        className="text-left text-xs bg-white hover:bg-blue-100 px-3 py-2 rounded-lg transition-colors border border-blue-200"
+                        disabled={refining}
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
