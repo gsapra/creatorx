@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import DashboardLayout from '../components/DashboardLayout'
-import { Type, Sparkles, Loader, ThumbsUp, Clock, Trash2, X, TrendingUp, Target, Zap, RefreshCw, Copy, Check, AlertCircle, ChevronDown, ChevronUp, Star, BarChart3 } from 'lucide-react'
+import { Type, Sparkles, Loader, Clock, Trash2, X, TrendingUp, Target, Zap, RefreshCw, Copy, Check, AlertCircle, ChevronDown, ChevronUp, BarChart3 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { usePersonas } from '../contexts/PersonaContext'
 import { apiPost } from '../services/api'

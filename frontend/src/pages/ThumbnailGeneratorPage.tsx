@@ -136,14 +136,14 @@ interface HistoryItem {
   timestamp: Date
 }
 
-const STYLE_OPTIONS = [
-  { value: 'modern', label: 'Modern', description: 'Clean geometric shapes, bright gradients' },
-  { value: 'bold', label: 'Bold', description: 'High contrast, large text, dramatic colors' },
-  { value: 'minimalist', label: 'Minimalist', description: 'Simple, elegant, few elements' },
-  { value: 'dramatic', label: 'Dramatic', description: 'Dark backgrounds, cinematic look' },
-  { value: 'gaming', label: 'Gaming', description: 'Neon colors, futuristic, high energy' },
-  { value: 'vlog', label: 'Vlog', description: 'Casual, friendly, warm colors' }
-]
+// const STYLE_OPTIONS = [
+//   { value: 'modern', label: 'Modern', description: 'Clean geometric shapes, bright gradients' },
+//   { value: 'bold', label: 'Bold', description: 'High contrast, large text, dramatic colors' },
+//   { value: 'minimalist', label: 'Minimalist', description: 'Simple, elegant, few elements' },
+//   { value: 'dramatic', label: 'Dramatic', description: 'Dark backgrounds, cinematic look' },
+//   { value: 'gaming', label: 'Gaming', description: 'Neon colors, futuristic, high energy' },
+//   { value: 'vlog', label: 'Vlog', description: 'Casual, friendly, warm colors' }
+// ]
 
 export default function ThumbnailGeneratorPage() {
   const [formData, setFormData] = useState({

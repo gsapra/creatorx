@@ -15,8 +15,7 @@ interface SmartKeyPointsManagerProps {
 
 const SmartKeyPointsManager: React.FC<SmartKeyPointsManagerProps> = ({
   keyPoints,
-  onChange,
-  topic
+  onChange
 }) => {
   const [newPointText, setNewPointText] = useState('');
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);

@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react'
-import { Download, Type, Image as ImageIcon, Trash2, ChevronUp, ChevronDown, Eye, EyeOff, Palette, Move } from 'lucide-react'
+import { Download, Type, Image as ImageIcon, Trash2, ChevronUp, ChevronDown, Palette, Move } from 'lucide-react'
 
 interface ThumbnailLayer {
   id: string
@@ -55,7 +55,7 @@ interface ThumbnailEditorProps {
   onUpdate?: (template: ThumbnailTemplate) => void
 }
 
-export default function ThumbnailEditor({ template, onUpdate }: ThumbnailEditorProps) {
+export default function ThumbnailEditor({ template }: ThumbnailEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [layers, setLayers] = useState<ThumbnailLayer[]>(template.layers || [])
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null)

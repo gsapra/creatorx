@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Type, Image as ImageIcon, Square, Circle, Download, Trash2, Plus, Move, Upload, ArrowUp, ArrowDown, Copy, RotateCw } from 'lucide-react'
+import { Type, Image as ImageIcon, Square, Circle, Download, Trash2, ArrowUp, ArrowDown, Copy } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface Layer {
@@ -187,7 +187,7 @@ export default function ThumbnailLayerEditor({ baseImageUrl, onExport, uploadedL
         ctx.textBaseline = 'top'
 
         // Letter spacing (approximate with manual spacing)
-        const letterSpacing = layer.letterSpacing || 0
+        // const letterSpacing = layer.letterSpacing || 0
 
         // Shadow
         if (layer.shadowColor) {
@@ -200,7 +200,7 @@ export default function ThumbnailLayerEditor({ baseImageUrl, onExport, uploadedL
         // Calculate x based on alignment
         let textX = layer.x
         if (layer.textAlign === 'center') {
-          const metrics = ctx.measureText(layer.text)
+          // const metrics = ctx.measureText(layer.text)
           textX = layer.x + layer.width / 2
         } else if (layer.textAlign === 'right') {
           textX = layer.x + layer.width
@@ -1038,7 +1038,7 @@ export default function ThumbnailLayerEditor({ baseImageUrl, onExport, uploadedL
         <div className="bg-white rounded-xl p-4 border border-gray-200">
           <h3 className="font-semibold text-gray-900 mb-3">Layers ({layers.length})</h3>
           <div className="space-y-2">
-            {layers.map((layer, index) => (
+            {layers.map((layer) => (
               <div
                 key={layer.id}
                 onClick={() => setSelectedLayer(layer.id)}

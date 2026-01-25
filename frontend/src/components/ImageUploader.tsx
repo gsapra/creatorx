@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
-import { Upload, X, Image as ImageIcon, Eye, Sparkles, Trash2, Check } from 'lucide-react'
+import { Upload, Eye, Sparkles, Trash2, Check } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiUrl } from '../config'
 
