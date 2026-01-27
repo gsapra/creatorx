@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import DashboardLayout from '../components/DashboardLayout'
-import { FileText, Type, Image, Share2, TrendingUp, Users, BookOpen, Zap, Wallet } from 'lucide-react'
+import { FileText, Type, Image, Share2, TrendingUp, Users, BookOpen, Zap } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { apiUrl } from '../config'
 import { toast } from 'sonner'
@@ -146,21 +146,6 @@ export default function DashboardPage() {
     loadDashboardData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  const getColorClasses = (color: string) => {
-    const colors: { [key: string]: string } = {
-      purple: 'from-brand-500 to-brand-600 hover:from-brand-600 hover:to-brand-700',
-      pink: 'from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700',
-      blue: 'from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700',
-      green: 'from-green-500 to-green-600 hover:from-green-600 hover:to-green-700',
-      orange: 'from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700',
-      indigo: 'from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700',
-      red: 'from-red-500 to-red-600 hover:from-red-600 hover:to-red-700',
-      yellow: 'from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700',
-      emerald: 'from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700'
-    }
-    return colors[color] || colors.purple
-  }
 
   const getActivityIcon = (type: string) => {
     switch (type) {

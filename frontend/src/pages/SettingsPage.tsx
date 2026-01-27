@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import DashboardLayout from '../components/DashboardLayout'
-import { Settings, User, Wallet, Mail, Phone, MapPin } from 'lucide-react'
+import { Settings, User, Wallet } from 'lucide-react'
 import GlassCard from '../components/modern/GlassCard'
 import { toast } from 'sonner'
 import { useAuth } from '../hooks/useAuth'
@@ -27,8 +27,8 @@ export default function SettingsPage() {
       setProfileData({
         name: user.full_name || '',
         email: user.email || '',
-        phone: user.phone || '',
-        location: user.location || ''
+        phone: '',
+        location: ''
       })
     }
   }, [user])
