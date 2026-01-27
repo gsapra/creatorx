@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import DashboardLayout from '../components/DashboardLayout'
-import { FileText, Type, Image, Share2, TrendingUp, Users, BookOpen, Zap, Loader, Wallet } from 'lucide-react'
+import { FileText, Type, Image, Share2, TrendingUp, Users, BookOpen, Zap, Wallet } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { apiUrl } from '../config'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 import GlassCard from '../components/modern/GlassCard'
 import FloatingActionButton from '../components/modern/FloatingActionButton'
 import BottomNavigation from '../components/modern/BottomNavigation'
@@ -92,13 +92,6 @@ export default function DashboardPage() {
       description: 'AI-powered courses for new creators',
       color: 'yellow',
       path: '/dashboard/courses'
-    },
-    {
-      icon: Wallet,
-      title: 'My Wallet',
-      description: 'Manage payments and earnings',
-      color: 'emerald',
-      path: '/dashboard/wallet'
     }
   ]
 
@@ -129,8 +122,8 @@ export default function DashboardPage() {
         return
       }
 
-      // Fetch recent activity (last 10 items across all content types)
-      const activityResponse = await fetch(apiUrl('/api/v1/content?limit=10'), {
+      // Fetch recent activity (last 5 items across all content types)
+      const activityResponse = await fetch(apiUrl('/api/v1/content?limit=5'), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -290,21 +283,17 @@ export default function DashboardPage() {
                   <GlassCard
                     key={index}
                     onClick={() => navigate(tool.path)}
-                    className="group p-6 overflow-hidden cursor-pointer animate-scale-in"
-                    style={{ animationDelay: `${index * 50}ms` }}
+                    className="group p-6 cursor-pointer animate-scale-in hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
                   >
-                    <div className={`absolute inset-0 bg-gradient-to-br ${getColorClasses(tool.color)} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}></div>
-                    <div className="relative z-10">
-                      <div className="w-14 h-14 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-white/20 transition-all group-hover:scale-110 group-hover:rotate-6 duration-300">
-                        <Icon className="w-7 h-7 text-gray-700 group-hover:text-white transition-colors" />
-                      </div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-white transition-colors">
-                        {tool.title}
-                      </h3>
-                      <p className="text-sm text-gray-600 group-hover:text-white/90 transition-colors line-clamp-2">
-                        {tool.description}
-                      </p>
+                    <div className="w-14 h-14 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 rounded-2xl flex items-center justify-center mb-4 transition-all duration-200">
+                      <Icon className="w-7 h-7 text-gray-700" />
                     </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      {tool.title}
+                    </h3>
+                    <p className="text-sm text-gray-600 line-clamp-2">
+                      {tool.description}
+                    </p>
                   </GlassCard>
                 )
               })}

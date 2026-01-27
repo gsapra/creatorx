@@ -1,5 +1,5 @@
 import { ReactNode } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   Sparkles,
   Home,
@@ -13,11 +13,12 @@ import {
   Settings,
   LogOut,
   Menu,
-  X
+  X,
+  Wallet
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
-import toast from 'react-hot-toast'
+import { toast } from 'sonner'
 
 interface DashboardLayoutProps {
   children: ReactNode
@@ -26,6 +27,7 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { logout } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const menuItems = [
@@ -66,7 +68,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               </Link>
             </div>
             <div className="flex items-center space-x-4">
-              <button className="p-2 text-neutral-600 hover:text-brand-600 transition-colors rounded-lg hover:bg-brand-50">
+              <button
+                onClick={() => navigate('/dashboard/wallet')}
+                className="p-2 text-neutral-600 hover:text-emerald-600 transition-colors rounded-lg hover:bg-emerald-50"
+              >
+                <Wallet className="w-6 h-6" />
+              </button>
+              <button
+                onClick={() => navigate('/dashboard/settings')}
+                className="p-2 text-neutral-600 hover:text-brand-600 transition-colors rounded-lg hover:bg-brand-50"
+              >
                 <Settings className="w-6 h-6" />
               </button>
               <button

@@ -26,7 +26,7 @@ export const AddMoneyModal: React.FC<AddMoneyModalProps> = ({ isOpen, onClose, o
 
   const quickAmounts = [100, 500, 1000, 2000, 5000]
 
-  const markTransactionFailed = async (orderId: string) => {
+  const markTransactionFailed = async (_orderId: string) => {
     try {
       // The webhook will handle marking as failed, but we can trigger cleanup
       await fetch(apiUrl('/api/v1/wallet/cleanup-pending'), {
