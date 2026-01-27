@@ -32,10 +32,10 @@ class Settings(BaseSettings):
     GOOGLE_APPLICATION_CREDENTIALS: str = ""
     GROQ_API_KEY: str = ""
 
-    # Razorpay Configuration
-    RAZORPAY_KEY_ID: str
-    RAZORPAY_KEY_SECRET: str
-    RAZORPAY_WEBHOOK_SECRET: str
+    # Razorpay Configuration (Optional - for payment integration)
+    RAZORPAY_KEY_ID: str = ""
+    RAZORPAY_KEY_SECRET: str = ""
+    RAZORPAY_WEBHOOK_SECRET: str = ""
     RAZORPAY_MODE: str = "test"  # "test" or "live"
 
     # CORS
