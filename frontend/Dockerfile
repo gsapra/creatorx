@@ -1,13 +1,13 @@
 # Build stage
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# Install all dependencies for build (now Capacitor is in devDependencies)
+RUN npm ci
 
 # Copy source code
 COPY . .
