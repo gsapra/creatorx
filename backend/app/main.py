@@ -7,6 +7,7 @@ from app.api.v1.router import api_router
 from app.core.database import engine, Base
 import logging
 from pathlib import Path
+from typing import List
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -23,14 +24,38 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS Middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Custom CORS origin validator for ngrok support
+def get_cors_origins() -> List[str]:
+    """Get CORS origins with ngrok support for local testing"""
+    origins = list(settings.CORS_ORIGINS) if isinstance(settings.CORS_ORIGINS, list) else [settings.CORS_ORIGINS]
+
+    # For local testing with ngrok, allow all ngrok domains
+    if settings.ALLOW_NGROK:
+        logger.info("⚠️  ngrok CORS enabled - allowing *.ngrok-free.app and *.ngrok.io domains")
+
+    return origins
+
+# CORS Middleware with ngrok support
+if settings.ALLOW_NGROK:
+    # Allow all origins in development for ngrok testing
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=r"https?://(localhost|127\.0\.0\.1|.*\.ngrok-free\.app|.*\.ngrok\.io)(:\d+)?",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    logger.info("🔓 CORS: Development mode with ngrok support enabled")
+else:
+    # Production mode - strict origins
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=get_cors_origins(),
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    logger.info(f"🔒 CORS: Production mode - allowed origins: {get_cors_origins()}")
 
 # GZip compression
 app.add_middleware(GZipMiddleware, minimum_size=1000)

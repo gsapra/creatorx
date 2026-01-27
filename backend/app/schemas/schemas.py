@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, Dict, List
 from datetime import datetime
-from app.models.models import UserRole, PersonaType, ContentType, FeedbackType, CollaborationStatus
+from app.models.models import UserRole, PersonaType, ContentType, FeedbackType, CollaborationStatus, TransactionType, TransactionStatus, PayoutStatus
 
 
 # User Schemas
@@ -354,6 +354,80 @@ class CourseResponse(CourseBase):
     is_published: bool
     created_at: datetime
     
+    class Config:
+        from_attributes = True
+
+
+# Wallet Schemas
+class WalletResponse(BaseModel):
+    id: int
+    user_id: int
+    balance: float
+    currency: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class TopupRequest(BaseModel):
+    amount: float = Field(..., gt=0, description="Amount in INR")
+    currency: str = "INR"
+
+
+class TopupOrderResponse(BaseModel):
+    order_id: str
+    amount: float
+    currency: str
+    razorpay_key_id: str
+
+
+class PaymentVerificationRequest(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+
+
+class TransactionResponse(BaseModel):
+    id: int
+    wallet_id: int
+    type: str
+    amount: float
+    status: str
+    currency: str
+    description: Optional[str] = None
+    razorpay_order_id: Optional[str] = None
+    razorpay_payment_id: Optional[str] = None
+    created_at: datetime
+    completed_at: Optional[datetime] = None
+    meta_data: Optional[Dict] = None
+
+    class Config:
+        from_attributes = True
+
+
+class PayoutRequestSchema(BaseModel):
+    amount: float = Field(..., gt=0, description="Withdrawal amount")
+    bank_account_number: str = Field(..., min_length=9, max_length=18)
+    bank_ifsc_code: str = Field(..., pattern=r'^[A-Z]{4}0[A-Z0-9]{6}$')
+    bank_account_name: str
+    bank_name: Optional[str] = None
+
+
+class PayoutRequestResponse(BaseModel):
+    id: int
+    user_id: int
+    amount: float
+    currency: str
+    status: str
+    bank_account_number: str  # Masked in response
+    bank_ifsc_code: str
+    bank_account_name: str
+    processing_fee: float
+    net_amount: float
+    created_at: datetime
+
     class Config:
         from_attributes = True
 

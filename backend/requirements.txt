@@ -12,6 +12,7 @@ email-validator==2.1.0
 redis==5.0.1
 celery==5.3.6
 clickhouse-connect==0.7.0
+razorpay==1.4.1
 
 # AI/ML
 openai==1.10.0

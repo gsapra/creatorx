@@ -31,10 +31,18 @@ class Settings(BaseSettings):
     GOOGLE_VERTEX_LOCATION: str = "us-central1"
     GOOGLE_APPLICATION_CREDENTIALS: str = ""
     GROQ_API_KEY: str = ""
-    
+
+    # Razorpay Configuration
+    RAZORPAY_KEY_ID: str
+    RAZORPAY_KEY_SECRET: str
+    RAZORPAY_WEBHOOK_SECRET: str
+    RAZORPAY_MODE: str = "test"  # "test" or "live"
+
     # CORS
     CORS_ORIGINS: Union[List[str], str] = [
-        "http://localhost:3000", 
+        "http://localhost:3000",
+        "http://localhost:8000",
+        "http://localhost:8080",
         "http://localhost:5173",
         "http://44.215.164.169",
         "http://44.215.164.169:8000",
@@ -43,6 +51,9 @@ class Settings(BaseSettings):
         "http://minimalthreads.in",
         "http://www.minimalthreads.in"
     ]
+
+    # Allow ngrok for local testing
+    ALLOW_NGROK: bool = True
     
     @field_validator('CORS_ORIGINS', mode='before')
     @classmethod

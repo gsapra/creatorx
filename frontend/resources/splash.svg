@@ -1,0 +1,6 @@
+<svg width="2732" height="2732" xmlns="http://www.w3.org/2000/svg">
+  <rect width="2732" height="2732" fill="#6366f1"/>
+  <text x="1366" y="1200" font-family="Arial, sans-serif" font-size="280" font-weight="bold" fill="white" text-anchor="middle">CreatorX</text>
+  <text x="1366" y="1550" font-family="Arial, sans-serif" font-size="120" fill="white" text-anchor="middle" opacity="0.9">AI-Powered Creator Platform</text>
+  <circle cx="1366" cy="1366" r="500" stroke="white" stroke-width="12" fill="none" opacity="0.2"/>
+</svg>

@@ -3,10 +3,14 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 import { VitePWA } from 'vite-plugin-pwa'
 
-export default defineConfig({
-  plugins: [
-    react(),
-    VitePWA({
+export default defineConfig(({ mode }) => {
+  const isMobileBuild = mode === 'mobile'
+
+  return {
+    plugins: [
+      react(),
+      // Only enable PWA for web builds
+      !isMobileBuild && VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'robots.txt', 'icons/*.png'],
       manifest: {
@@ -92,7 +96,7 @@ export default defineConfig({
         enabled: false
       }
     })
-  ],
+  ].filter(Boolean), // Remove false values (PWA disabled for mobile)
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -102,4 +106,26 @@ export default defineConfig({
     host: true,
     port: 3000,
   },
+
+  // Production build optimizations
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Vendor chunks for better caching
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'query-vendor': ['@tanstack/react-query'],
+          'ui-vendor': ['lucide-react', 'react-hot-toast', 'react-hook-form', '@hookform/resolvers', 'zod'],
+          'capacitor-vendor': ['@capacitor/core', '@capacitor/app', '@capacitor/camera', '@capacitor/share', '@capacitor/network', '@capacitor/splash-screen', '@capacitor/status-bar', '@capacitor/keyboard', '@capacitor/haptics'],
+        },
+      },
+    },
+    // Target modern browsers for better performance
+    target: 'es2020',
+    // Source maps for production debugging
+    sourcemap: false,
+    // Optimize chunk size
+    chunkSizeWarningLimit: 600,
+  },
+  }
 })

@@ -70,3 +70,8 @@ temp/
 # OS
 Thumbs.db
 .DS_Store
+
+# Capacitor native projects (regenerate from config)
+frontend/ios/
+frontend/android/
+frontend/.capacitor/
