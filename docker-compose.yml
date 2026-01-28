@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database
   postgres:
@@ -59,7 +57,7 @@ services:
       dockerfile: Dockerfile
     container_name: creatorx_backend
     env_file:
-      - ./backend/.env
+      - .env
     environment:
       # Database URLs (override for Docker networking)
       DATABASE_URL: postgresql://creatorx:creatorx_password@postgres:5432/creatorx
@@ -68,8 +66,8 @@ services:
 
       # Pass through all env vars from .env file
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      GOOGLE_VERTEX_PROJECT_ID: ${GOOGLE_VERTEX_PROJECT_ID}
-      GOOGLE_VERTEX_LOCATION: ${GOOGLE_VERTEX_LOCATION}
+      GOOGLE_VERTEX_PROJECT_ID: ${GOOGLE_VERTEX_PROJECT_ID:-}
+      GOOGLE_VERTEX_LOCATION: ${GOOGLE_VERTEX_LOCATION:-}
       GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-/app/Vertex_AI_Creds.json}
       GROQ_API_KEY: ${GROQ_API_KEY}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
@@ -88,6 +86,7 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
+      - ./backend/Vertex_AI_Creds.json:/app/Vertex_AI_Creds.json:ro
     depends_on:
       postgres:
         condition: service_healthy

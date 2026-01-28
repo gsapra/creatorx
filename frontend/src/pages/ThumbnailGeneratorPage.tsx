@@ -181,13 +181,6 @@ export default function ThumbnailGeneratorPage() {
   const [selectedStylePreset, setSelectedStylePreset] = useState<string | null>(null)
   const [uploadedImages, setUploadedImages] = useState<Array<{file: File, preview: string}>>([])
 
-  // Model display names
-  const MODEL_NAMES = {
-    'gpt-image-1.5': 'Smart Editor',
-    'dall-e-3': 'Creative Artist',
-    'imagen-3.0-generate-001': 'Photo Master'
-  }
-
   // Calculate quality score for thumbnails
   const calculateQualityScore = (template: ThumbnailTemplate): number => {
     let score = 60 // Base score
