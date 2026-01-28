@@ -13,6 +13,13 @@ import os
 
 logger = logging.getLogger(__name__)
 
+# Set Google credentials environment variable globally if configured
+if settings.GOOGLE_APPLICATION_CREDENTIALS and os.path.exists(settings.GOOGLE_APPLICATION_CREDENTIALS):
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = settings.GOOGLE_APPLICATION_CREDENTIALS
+    logger.info(f"Global: Set GOOGLE_APPLICATION_CREDENTIALS to: {settings.GOOGLE_APPLICATION_CREDENTIALS}")
+elif settings.GOOGLE_APPLICATION_CREDENTIALS:
+    logger.warning(f"Global: Credentials file not found at: {settings.GOOGLE_APPLICATION_CREDENTIALS}")
+
 # Tool-specific parameter optimization for best results per content type
 TOOL_CONFIGS = {
     'script': {
@@ -406,10 +413,11 @@ Description: {persona.get('description', 'N/A')}
         size: str = "1792x1024",
         quality: str = "hd",
         style: str = "vivid",
-        n: int = 1
+        n: int = 1,
+        model: str = "dall-e-3"
     ) -> List[str]:
         """
-        Generate images using DALL-E 3
+        Generate images using specified model (DALL-E, Gemini, or Imagen)
 
         Args:
             prompt: Detailed image generation prompt
@@ -417,36 +425,305 @@ Description: {persona.get('description', 'N/A')}
             quality: Image quality (standard or hd)
             style: Style preset (vivid or natural)
             n: Number of images to generate (1-10)
+            model: Image model ('dall-e-3', 'gemini-2.5-flash-image', 'gemini-3-pro-image-preview', 'imagen-4.0-generate-001')
 
         Returns:
-            List of image URLs
+            List of image URLs or base64 data
         """
         try:
-            logger.info(f"Generating {n} image(s) with DALL-E 3: {prompt[:100]}...")
+            logger.info(f"Generating {n} image(s) with {model}: {prompt[:100]}...")
 
-            response = await self.openai_client.images.generate(
-                model="dall-e-3",
-                prompt=prompt,
-                size=size,
-                quality=quality,
-                style=style,
-                n=1  # DALL-E 3 only supports n=1
-            )
+            # Supported models: GPT-Image 1.5, GPT-Image 1, DALL-E 3, Imagen 3
+            if model in ["dall-e-3", "gpt-image-1.5", "gpt-image-1"]:
+                return await self._generate_image_dalle(prompt, size, quality, style, model)
+            elif model in ["imagen-3.0-generate-001"]:
+                return await self._generate_image_imagen(prompt, model, size)
+            else:
+                raise ValueError(
+                    f"Unsupported image model: {model}. "
+                    f"Supported models: gpt-image-1.5, gpt-image-1, dall-e-3, imagen-3.0-generate-001"
+                )
 
-            image_urls = [img.url for img in response.data]
-            logger.info(f"Successfully generated {len(image_urls)} image(s)")
+        except Exception as e:
+            logger.error(f"Image generation failed with {model}: {e}")
+            raise Exception(f"Image generation failed: {str(e)}")
+
+    async def _generate_image_dalle(
+        self,
+        prompt: str,
+        size: str = "1792x1024",
+        quality: str = "hd",
+        style: str = "vivid",
+        model: str = "dall-e-3"
+    ) -> List[str]:
+        """Generate images using OpenAI image models (DALL-E, GPT-Image)"""
+        try:
+            logger.info(f"Generating image with OpenAI model: {model}")
+
+            if model in ["gpt-image-1.5", "gpt-image-1"]:
+                # GPT-Image models - different size options and simpler parameters
+                # Supported sizes: '1024x1024', '1024x1536', '1536x1024', 'auto'
+                # Map requested size to closest supported size
+                if size == "1792x1024":
+                    gpt_size = "1536x1024"  # Closest widescreen format
+                elif size == "1024x1792":
+                    gpt_size = "1024x1536"  # Closest portrait format
+                else:
+                    gpt_size = "1024x1024"  # Default square
+
+                logger.info(f"Mapping size {size} to GPT-Image supported size: {gpt_size}")
+
+                # GPT-Image models don't support response_format parameter
+                # They return URLs by default
+                response = await self.openai_client.images.generate(
+                    model=model,
+                    prompt=prompt,
+                    size=gpt_size,
+                    n=1
+                )
+            else:
+                # DALL-E 3 (default)
+                # Try base64 format to avoid URL expiration (URLs expire in 1 hour)
+                try:
+                    response = await self.openai_client.images.generate(
+                        model=model,
+                        prompt=prompt,
+                        size=size,
+                        quality=quality,
+                        style=style,
+                        n=1,  # DALL-E 3 only supports n=1
+                        response_format="b64_json"
+                    )
+                except Exception as e:
+                    if "response_format" in str(e).lower():
+                        logger.info(f"{model} doesn't support response_format, using URL")
+                        response = await self.openai_client.images.generate(
+                            model=model,
+                            prompt=prompt,
+                            size=size,
+                            quality=quality,
+                            style=style,
+                            n=1
+                        )
+                    else:
+                        raise
+
+            # Extract image URLs or base64 data from response
+            image_urls = []
+            for img in response.data:
+                if hasattr(img, 'url') and img.url:
+                    # URL-based response (DALL-E 3, DALL-E 2)
+                    image_urls.append(img.url)
+                elif hasattr(img, 'b64_json') and img.b64_json:
+                    # Base64 response (some models)
+                    image_urls.append(f"data:image/png;base64,{img.b64_json}")
+                else:
+                    logger.warning(f"Image response missing both url and b64_json: {img}")
+
+            if not image_urls:
+                raise Exception(f"No valid images returned from {model}")
+
+            logger.info(f"Successfully generated {len(image_urls)} image(s) with {model}")
             return image_urls
 
         except Exception as e:
-            logger.error(f"DALL-E image generation failed: {e}")
-            raise Exception(f"Image generation failed: {str(e)}")
+            error_msg = str(e)
+            logger.error(f"OpenAI image generation failed with {model}: {e}")
+
+            # Provide helpful error messages
+            if "model" in error_msg.lower() and "does not exist" in error_msg.lower():
+                raise Exception(
+                    f"Model '{model}' is not available in your OpenAI account. "
+                    f"Available models: dall-e-3, dall-e-2. "
+                    f"If '{model}' is a new model, please check OpenAI documentation."
+                )
+            else:
+                raise
+
+    async def _generate_image_gemini(
+        self,
+        prompt: str,
+        model: str,
+        size: str = "1792x1024"
+    ) -> List[str]:
+        """Generate images using Gemini multimodal models with image generation capabilities"""
+        if not self.vertex_available:
+            raise ValueError("Vertex AI not configured for Gemini image generation")
+
+        try:
+            from google import genai
+            from google.genai import types
+            import base64
+
+            logger.info(f"Generating image with Gemini model: {model}")
+            logger.info(f"Using project: {settings.GOOGLE_VERTEX_PROJECT_ID}, location: {settings.GOOGLE_VERTEX_LOCATION}")
+
+            # Initialize Gemini client with Vertex AI
+            # Credentials are already set globally in the module init
+            client = genai.Client(
+                vertexai=True,
+                project=settings.GOOGLE_VERTEX_PROJECT_ID,
+                location=settings.GOOGLE_VERTEX_LOCATION
+            )
+
+            # Set aspect ratio based on size
+            aspect_ratio = "16:9" if size == "1792x1024" else "1:1"
+
+            # Configure generation with image output
+            # Note: Include aspect ratio in the prompt as Gemini doesn't have image_config in GenerateContentConfig
+            prompt_with_aspect = f"Generate a {aspect_ratio} aspect ratio image. {prompt}"
+
+            generate_content_config = types.GenerateContentConfig(
+                temperature=0.8,
+                topP=0.95,
+                maxOutputTokens=32768,
+                responseModalities=["IMAGE"],  # Request image output
+                mediaResolution="MEDIA_RESOLUTION_HIGH",  # High quality images
+                safetySettings=[
+                    types.SafetySetting(
+                        category="HARM_CATEGORY_HATE_SPEECH",
+                        threshold="OFF"
+                    ),
+                    types.SafetySetting(
+                        category="HARM_CATEGORY_DANGEROUS_CONTENT",
+                        threshold="OFF"
+                    ),
+                    types.SafetySetting(
+                        category="HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                        threshold="OFF"
+                    ),
+                    types.SafetySetting(
+                        category="HARM_CATEGORY_HARASSMENT",
+                        threshold="OFF"
+                    )
+                ],
+            )
+
+            # Update contents with modified prompt
+            contents = [
+                types.Content(
+                    role="user",
+                    parts=[
+                        types.Part.from_text(text=prompt_with_aspect)
+                    ]
+                )
+            ]
+
+            # Generate image (synchronous call, but wrapped in async)
+            import asyncio
+            response = await asyncio.to_thread(
+                client.models.generate_content,
+                model=model,
+                contents=contents,
+                config=generate_content_config,
+            )
+
+            # Extract images from response
+            image_urls = []
+            if hasattr(response, 'candidates') and response.candidates:
+                for candidate in response.candidates:
+                    if hasattr(candidate, 'content') and candidate.content:
+                        for part in candidate.content.parts:
+                            # Check for inline_data (image)
+                            if hasattr(part, 'inline_data') and part.inline_data:
+                                mime_type = part.inline_data.mime_type
+                                image_data = part.inline_data.data
+
+                                # Convert bytes to base64 if needed
+                                if isinstance(image_data, bytes):
+                                    base64_encoded = base64.b64encode(image_data).decode('utf-8')
+                                else:
+                                    base64_encoded = image_data
+
+                                image_urls.append(f"data:{mime_type};base64,{base64_encoded}")
+                                logger.info(f"Successfully generated image with {model}")
+
+            if not image_urls:
+                # Log response details for debugging
+                logger.warning(f"No images in response from {model}. Response: {response}")
+                raise Exception(f"No images generated by {model}. Check model supports image generation.")
+
+            return image_urls
+
+        except Exception as e:
+            error_msg = str(e)
+            logger.error(f"Gemini image generation failed with {model}: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+
+            # Provide helpful error messages
+            if "invalid_scope" in error_msg.lower() or "oauth" in error_msg.lower():
+                raise Exception(
+                    f"Authentication error with Gemini API. Please ensure:\n"
+                    f"1. The 'Generative Language API' is enabled in your Google Cloud project\n"
+                    f"2. Your service account has the necessary permissions\n"
+                    f"3. The service account key file is valid\n"
+                    f"Project: {settings.GOOGLE_VERTEX_PROJECT_ID}"
+                )
+            else:
+                raise
+
+    async def _generate_image_imagen(
+        self,
+        prompt: str,
+        model: str,
+        size: str = "1792x1024"
+    ) -> List[str]:
+        """Generate images using Google Vertex AI Imagen models"""
+        if not self.vertex_available:
+            raise ValueError("Vertex AI not configured for Imagen generation")
+
+        try:
+            from vertexai.preview.vision_models import ImageGenerationModel
+            import base64
+            import io
+            import asyncio
+
+            logger.info(f"Generating image with Imagen model: {model}")
+
+            # Initialize the image generation model
+            imagen_model = ImageGenerationModel.from_pretrained(model)
+
+            # Add aspect ratio hint to the prompt since API doesn't support aspect_ratio parameter
+            aspect_ratio_hint = "16:9 widescreen format" if size == "1792x1024" else "1:1 square format"
+            enhanced_prompt = f"{prompt}. Generate in {aspect_ratio_hint}."
+
+            # Generate image (wrap in async)
+            response = await asyncio.to_thread(
+                imagen_model.generate_images,
+                prompt=enhanced_prompt,
+                number_of_images=1
+            )
+
+            # Convert to base64 for frontend
+            image_urls = []
+            if response and len(response.images) > 0:
+                generated_image = response.images[0]
+
+                # Convert to base64
+                img_byte_arr = io.BytesIO()
+                generated_image._pil_image.save(img_byte_arr, format='PNG')
+                img_byte_arr = img_byte_arr.getvalue()
+                base64_encoded = base64.b64encode(img_byte_arr).decode('utf-8')
+
+                image_urls.append(f"data:image/png;base64,{base64_encoded}")
+                logger.info(f"Successfully generated image with {model}")
+            else:
+                raise Exception("No images generated")
+
+            return image_urls
+
+        except Exception as e:
+            logger.error(f"Imagen generation failed with {model}: {e}")
+            raise
 
     async def generate_multiple_images(
         self,
         prompts: List[str],
         size: str = "1792x1024",
         quality: str = "hd",
-        style: str = "vivid"
+        style: str = "vivid",
+        model: str = "dall-e-3"
     ) -> List[str]:
         """
         Generate multiple images from a list of prompts
@@ -456,6 +733,7 @@ Description: {persona.get('description', 'N/A')}
             size: Image size for all images
             quality: Image quality
             style: Style preset
+            model: Image model to use
 
         Returns:
             List of image URLs (one per prompt)
@@ -463,7 +741,7 @@ Description: {persona.get('description', 'N/A')}
         import asyncio
 
         tasks = [
-            self.generate_image(prompt, size, quality, style, n=1)
+            self.generate_image(prompt, size, quality, style, n=1, model=model)
             for prompt in prompts
         ]
 
@@ -616,6 +894,104 @@ Description: {persona.get('description', 'N/A')}
         except Exception as e:
             logger.error(f"DALL-E edit generation failed: {e}")
             raise Exception(f"DALL-E edit generation failed: {str(e)}")
+
+    async def analyze_images_for_thumbnail(
+        self,
+        base64_images: List[str],
+        user_prompt: str
+    ) -> str:
+        """
+        Analyze uploaded images using GPT-4o Vision and create an enhanced prompt
+        for thumbnail generation that incorporates the visual elements.
+
+        Args:
+            base64_images: List of base64-encoded images
+            user_prompt: Original user prompt for the thumbnail
+
+        Returns:
+            Enhanced prompt that describes the images and how to incorporate them
+        """
+        try:
+            logger.info(f"Analyzing {len(base64_images)} images with GPT-4o Vision")
+
+            # Prepare image messages for GPT-4o Vision
+            image_content = []
+            for base64_img in base64_images:
+                # Ensure proper data URL format
+                if not base64_img.startswith('data:image'):
+                    base64_img = f"data:image/png;base64,{base64_img}"
+
+                image_content.append({
+                    "type": "image_url",
+                    "image_url": {
+                        "url": base64_img,
+                        "detail": "high"
+                    }
+                })
+
+            # Create analysis prompt
+            analysis_prompt = f"""You are a professional thumbnail designer analyzing images uploaded by a content creator.
+
+USER'S THUMBNAIL REQUEST:
+"{user_prompt}"
+
+TASK:
+Analyze the uploaded image(s) and create a detailed visual description that will be used to generate a YouTube thumbnail. Your description should:
+
+1. DESCRIBE THE KEY ELEMENTS:
+   - Main subjects (people, objects, products)
+   - Colors, lighting, and atmosphere
+   - Composition and layout
+   - Emotions and expressions (if people are present)
+   - Text or branding visible
+
+2. DESIGN RECOMMENDATIONS:
+   - How to incorporate these elements into the thumbnail
+   - What background style would complement the images
+   - Where to place text overlays
+   - Color scheme suggestions that work with the images
+   - How to make it eye-catching and click-worthy
+
+3. ENHANCED PROMPT:
+Create a detailed image generation prompt that incorporates:
+   - The user's original request
+   - Visual elements from the uploaded images
+   - Professional thumbnail design principles
+   - High CTR optimization
+
+OUTPUT FORMAT:
+Provide a single, detailed prompt (200-300 words) that can be used directly with an AI image generator to create a professional YouTube thumbnail that naturally incorporates the uploaded images' style, colors, and key elements.
+
+Focus on making the final thumbnail cohesive, professional, and optimized for clicks."""
+
+            # Call GPT-4o Vision
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": analysis_prompt},
+                        *image_content
+                    ]
+                }
+            ]
+
+            response = await self.openai_client.chat.completions.create(
+                model="gpt-4o",
+                messages=messages,
+                max_tokens=800,
+                temperature=0.7
+            )
+
+            enhanced_prompt = response.choices[0].message.content.strip()
+            logger.info(f"Generated enhanced prompt: {enhanced_prompt[:200]}...")
+
+            return enhanced_prompt
+
+        except Exception as e:
+            logger.error(f"Vision analysis failed: {e}")
+            # Fallback to original prompt
+            logger.warning("Falling back to original prompt without image analysis")
+            return user_prompt
 
     def _get_persona_tool_guidance(self, persona_type: str, tool_type: str) -> str:
         """Get specific guidance for how to apply persona to this tool"""

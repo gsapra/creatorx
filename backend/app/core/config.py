@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List, Union
 from pydantic import field_validator
 
@@ -70,10 +70,12 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str = "redis://localhost:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
-        extra = "ignore"  # Ignore extra fields in .env file
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+        extra="ignore"
+    )
 
 
 settings = Settings()

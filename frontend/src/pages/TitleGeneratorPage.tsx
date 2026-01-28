@@ -600,41 +600,34 @@ export default function TitleGeneratorPage() {
               <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-pink-500 to-purple-600 rounded-2xl mb-4 shadow-lg">
                 <Type className="w-7 h-7 text-white" />
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Create Viral Titles</h2>
-              <p className="text-gray-600 text-sm">Generate high-CTR titles optimized for maximum engagement</p>
+              <h2 className="text-2xl font-bold text-gray-900">Create Viral Titles</h2>
             </div>
 
             {/* Video Topic */}
             <div>
               <label className="block text-sm font-semibold text-gray-900 mb-2">
-                What's your video about? *
+                Video Topic <span className="text-red-500">*</span>
               </label>
-              <p className="text-xs text-gray-600 mb-3">
-                💡 Be specific! Better topics lead to better titles
-              </p>
               <input
                 type="text"
                 value={formData.topic}
                 onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-pink-500 focus:ring-0 transition-colors text-gray-900 placeholder-gray-400"
-                placeholder="e.g., How to Edit Videos 10x Faster"
+                placeholder="e.g., How to Edit Videos 10x Faster with These 5 Simple Tricks"
               />
             </div>
 
             {/* Target Audience Persona */}
             <div>
               <label className="block text-sm font-semibold text-gray-900 mb-2">
-                Who's your target audience?
+                Target Audience
               </label>
-              <p className="text-xs text-gray-600 mb-3">
-                🎯 Use a saved persona for audience-specific titles
-              </p>
               <select
                 value={formData.audiencePersonaId}
                 onChange={(e) => setFormData({ ...formData, audiencePersonaId: e.target.value })}
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-pink-500 focus:ring-0 transition-colors text-gray-900 bg-white"
               >
-                <option value="">General audience (no persona)</option>
+                <option value="">General audience</option>
                 {getAudiencePersonas().map(persona => (
                   <option key={persona.id} value={persona.id}>{persona.name}</option>
                 ))}
@@ -644,11 +637,8 @@ export default function TitleGeneratorPage() {
             {/* Keywords with Smart Suggestions */}
             <div>
               <label className="block text-sm font-semibold text-gray-900 mb-2">
-                Target Keywords (optional)
+                Keywords (Optional)
               </label>
-              <p className="text-xs text-gray-600 mb-3">
-                🔑 Add keywords for SEO optimization
-              </p>
               <div className="flex gap-2">
                 <input
                   type="text"

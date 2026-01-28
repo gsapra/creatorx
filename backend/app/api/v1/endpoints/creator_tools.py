@@ -301,12 +301,11 @@ async def generate_thumbnail_ideas(
             "user_id": current_user.id,
             "persona_id": persona_id_to_save,
             "type": "thumbnail_idea",
-            "title": f"Thumbnail Templates: {request.video_title}",
+            "title": f"Thumbnail: {request.thumbnail_prompt[:50]}",
             "content_text": f"{len(templates)} thumbnail templates generated",
             "meta_data": {
-                "video_title": request.video_title,
-                "video_topic": request.video_topic,
-                "templates": templates,  # Layer-based templates
+                "thumbnail_prompt": request.thumbnail_prompt,
+                "templates": templates,
                 "count": len(templates)
             },
             "ai_model": request.ai_model,

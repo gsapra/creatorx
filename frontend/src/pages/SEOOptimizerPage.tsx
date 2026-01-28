@@ -626,16 +626,13 @@ ${optimization.optimized_content}
             {/* Content Input */}
             <div>
               <label className="block text-sm font-semibold text-gray-900 mb-2">
-                Your Content/Title *
+                Your Content or Title <span className="text-red-500">*</span>
               </label>
-              <p className="text-xs text-gray-600 mb-3">
-                💡 Enter your article title, video description, or page content
-              </p>
               <textarea
                 value={formData.content}
                 onChange={(e) => setFormData({ ...formData, content: e.target.value })}
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-orange-500 focus:ring-0 transition-colors text-gray-900 placeholder-gray-400 min-h-[140px]"
-                placeholder="e.g., A comprehensive guide to video editing for beginners, covering all the essential tools and techniques..."
+                placeholder="Enter your article title, video description, or page content. Example: A comprehensive guide to video editing for beginners, covering all the essential tools and techniques..."
               />
               <div className="flex items-center justify-between mt-2">
                 <span className="text-xs text-gray-500">
@@ -647,11 +644,8 @@ ${optimization.optimized_content}
             {/* Target Keywords with AI Suggestions */}
             <div>
               <label className="block text-sm font-semibold text-gray-900 mb-2">
-                Target Keywords *
+                Target Keywords <span className="text-red-500">*</span>
               </label>
-              <p className="text-xs text-gray-600 mb-3">
-                🔑 Enter keywords you want to rank for
-              </p>
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -680,9 +674,6 @@ ${optimization.optimized_content}
               <label className="block text-sm font-semibold text-gray-900 mb-2">
                 Target Audience (Optional)
               </label>
-              <p className="text-xs text-gray-600 mb-3">
-                🎯 Select a persona for audience-specific optimization
-              </p>
               <select
                 value={formData.audiencePersonaId}
                 onChange={(e) => setFormData({ ...formData, audiencePersonaId: e.target.value })}

@@ -209,11 +209,11 @@ class ThumbnailTemplate(BaseModel):
 
 
 class ThumbnailIdeaRequest(BaseModel):
-    video_title: str
-    video_topic: str
+    thumbnail_prompt: str  # Combined field for thumbnail description
     persona_id: Optional[int] = None
     count: int = Field(3, ge=1, le=10)
     ai_model: str = "openai"
+    image_model: str = "gpt-image-1.5"  # Image generation model: 'gpt-image-1.5', 'dall-e-3', 'imagen-3.0-generate-001'
 
     # Style & Mood
     style: Optional[str] = None  # 'modern', 'bold', 'minimalist', 'dramatic', 'gaming', 'vlog'
@@ -240,9 +240,9 @@ class ThumbnailIdeaRequest(BaseModel):
     include_arrow: Optional[bool] = False  # Include pointing arrow
     include_circle: Optional[bool] = False  # Include attention circle
 
-    # User Assets
+    # User Assets (for GPT-Image 1.5 only)
     custom_image_url: Optional[str] = None  # User-uploaded image URL
-    custom_images: Optional[List[Dict]] = None  # Multiple uploaded images with metadata
+    custom_images: Optional[List[Dict]] = None  # Multiple uploaded images with base64 data: [{"id": str, "base64_data": str}]
     reference_images: Optional[List[Dict]] = None  # Reference images for AI to analyze style
     brand_colors: Optional[List[str]] = None  # Array of hex colors for brand consistency
     use_uploaded_image: Optional[bool] = False  # Use uploaded image as background/element

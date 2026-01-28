@@ -99,7 +99,7 @@ class ThumbnailImageService:
             List of thumbnail dictionaries with image URLs and metadata
         """
         try:
-            logger.info(f"Generating {request.count} thumbnail images for: {request.video_title}")
+            logger.info(f"Generating {request.count} thumbnail images for: {request.thumbnail_prompt[:100]}")
 
             # Generate thumbnails using standard approach
             # If user uploaded images, they'll be added as layers in the editor
@@ -114,27 +114,64 @@ class ThumbnailImageService:
         request: ThumbnailIdeaRequest,
         persona: Optional[Dict] = None
     ) -> List[Dict]:
-        """Generate thumbnails using standard text-to-image (DALL-E 3)"""
-        # Generate DALL-E prompts based on user inputs
-        prompts = await self._create_dalle_prompts(request, persona)
+        """Generate thumbnails using specified image model"""
+        # Get the image model from request, default to dall-e-3
+        image_model = getattr(request, 'image_model', 'dall-e-3')
+        logger.info(f"Using image model: {image_model}")
 
-        # Generate images in parallel
+        # If user uploaded images for GPT-Image 1.5, analyze them first
+        enhanced_request = request
+        if image_model == 'gpt-image-1.5' and request.custom_images and len(request.custom_images) > 0:
+            logger.info(f"Analyzing {len(request.custom_images)} uploaded images with GPT-4o Vision")
+
+            # Extract base64 data from custom images
+            base64_images = [img.get('base64_data', '') for img in request.custom_images]
+
+            # Analyze images and get enhanced prompt
+            enhanced_prompt = await ai_service.analyze_images_for_thumbnail(
+                base64_images=base64_images,
+                user_prompt=request.thumbnail_prompt
+            )
+
+            logger.info(f"Enhanced prompt created: {enhanced_prompt[:200]}...")
+
+            # Create a modified request with the enhanced prompt
+            from copy import deepcopy
+            enhanced_request = deepcopy(request)
+            enhanced_request.thumbnail_prompt = enhanced_prompt
+
+        # Generate prompts based on user inputs (using enhanced prompt if available)
+        prompts = await self._create_dalle_prompts(enhanced_request, persona)
+
+        # Generate images in parallel with selected model
         image_urls = await ai_service.generate_multiple_images(
             prompts=prompts,
             size="1792x1024",  # YouTube thumbnail aspect ratio
             quality="hd",
-            style="vivid"  # Vivid for eye-catching thumbnails
+            style="vivid",  # Vivid for eye-catching thumbnails
+            model=image_model
         )
 
         # Download and convert images to base64 for immediate display
         thumbnails = []
         for idx, image_url in enumerate(image_urls):
             try:
+                # Check if image_url is valid
+                if not image_url:
+                    logger.error(f"Image {idx + 1}/{len(image_urls)}: Received None or empty URL, skipping")
+                    continue
+
+                image_preview = str(image_url)[:100] if image_url else "None"
+                logger.info(f"Processing image {idx + 1}/{len(image_urls)}: {image_preview}...")
                 base64_data = await self._download_and_encode_image(image_url)
+
+                if not base64_data:
+                    logger.error(f"Empty base64_data for image {idx + 1}, skipping")
+                    continue
 
                 thumbnail = {
                     "id": f"thumb_{idx + 1}",
-                    "title": request.video_title,
+                    "title": request.thumbnail_prompt[:50],  # First 50 chars as title
                     "image_url": image_url,
                     "base64_data": base64_data,
                     "prompt": prompts[idx] if idx < len(prompts) else "",
@@ -152,9 +189,12 @@ class ThumbnailImageService:
                     thumbnail["uploaded_layers"] = request.custom_images
                     logger.info(f"Added {len(request.custom_images)} uploaded images as layers for thumbnail {idx + 1}")
 
+                logger.info(f"Successfully processed thumbnail {idx + 1} with base64 data length: {len(base64_data)}")
                 thumbnails.append(thumbnail)
             except Exception as e:
                 logger.error(f"Failed to process image {idx + 1}: {e}")
+                import traceback
+                logger.error(f"Traceback: {traceback.format_exc()}")
                 continue
 
         logger.info(f"Successfully generated {len(thumbnails)} thumbnails")
@@ -324,10 +364,10 @@ class ThumbnailImageService:
         color_palette = self.COLOR_PALETTES.get(color_scheme, self.COLOR_PALETTES["vibrant"])
         layout_style = self.LAYOUT_STYLES.get(layout, self.LAYOUT_STYLES["rule-of-thirds"])
 
-        # Build base prompt
+        # Build base prompt using the user's combined description
         base_prompt_parts = [
-            f"Create a professional YouTube thumbnail for a video titled '{request.video_title}'.",
-            f"Video topic: {request.video_topic}.",
+            f"Create a professional YouTube thumbnail based on this description:",
+            f"\"{request.thumbnail_prompt}\"",
             "",
             "VISUAL STYLE:",
             f"- Emotion/feeling: {emotion_style['description']}",
@@ -336,37 +376,24 @@ class ThumbnailImageService:
             f"- Effects: {emotion_style['effects']}",
             "",
             "TEXT REQUIREMENTS:",
-            f"- Main text: \"{self._extract_key_words(request.video_title)}\"",
             f"- Text style: {emotion_style['text_style']}",
             f"- Text must be large, bold, and clearly readable",
             f"- Use high contrast for text visibility",
+            f"- Incorporate any text mentioned in the description above",
         ]
 
-        # CRITICAL: Handle uploaded custom images
-        # If user uploaded their own image (face, product, etc.), DON'T generate competing elements
-        has_uploaded_images = request.custom_images and len(request.custom_images) > 0
-
-        if has_uploaded_images:
+        # Add face/person requirements if requested
+        # Note: If user uploaded images, the enhanced prompt from vision analysis
+        # will already incorporate them, so include_face may be less relevant
+        if request.include_face:
+            face_expression = request.face_expression or "excited"
             base_prompt_parts.extend([
                 "",
-                "⚠️ IMPORTANT - USER PROVIDED IMAGES:",
-                "- DO NOT generate faces, people, or products",
-                "- Create a BACKGROUND/TEMPLATE only",
-                "- Leave prominent space for the user's image to be overlaid",
-                "- Focus on background design, text, and decorative elements",
-                "- The user will add their own photo/product on top of this background"
+                "HUMAN ELEMENT:",
+                f"- Include a {face_expression} face/person with {emotion_style['description']}",
+                f"- Face should be prominent and expressive",
+                f"- Professional photography quality"
             ])
-        else:
-            # Add face/person requirements only if NO uploaded images
-            if request.include_face:
-                face_expression = request.face_expression or "excited"
-                base_prompt_parts.extend([
-                    "",
-                    "HUMAN ELEMENT:",
-                    f"- Include a {face_expression} face/person with {emotion_style['description']}",
-                    f"- Face should be prominent and expressive",
-                    f"- Professional photography quality"
-                ])
 
         # Add uploaded image references (style matching)
         if request.reference_images and len(request.reference_images) > 0:
@@ -484,15 +511,21 @@ class ThumbnailImageService:
 
     async def _download_and_encode_image(self, image_url: str) -> str:
         """
-        Download image from URL and encode to base64
+        Download image from URL and encode to base64, or return if already base64
 
         Args:
-            image_url: URL of the image
+            image_url: URL of the image or base64 data URI
 
         Returns:
             Base64 encoded image data URI
         """
         try:
+            # Check if it's already a base64 data URI
+            if image_url.startswith('data:image/'):
+                logger.info(f"Image is already base64 encoded, returning as-is")
+                return image_url
+
+            # Otherwise, download the image from URL
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.get(image_url)
                 response.raise_for_status()

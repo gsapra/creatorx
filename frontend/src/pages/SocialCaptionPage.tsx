@@ -635,11 +635,8 @@ export default function SocialCaptionPage() {
             {/* Platform Selection */}
             <div>
               <label className="block text-sm font-semibold text-gray-900 mb-2">
-                Choose Platform *
+                Platform <span className="text-red-500">*</span>
               </label>
-              <p className="text-xs text-gray-600 mb-3">
-                📱 Each platform has unique best practices and character limits
-              </p>
               <div className="grid grid-cols-4 gap-3">
                 {platforms.map((platform) => {
                   const Icon = platform.icon
@@ -665,17 +662,14 @@ export default function SocialCaptionPage() {
             {/* Content Description */}
             <div>
               <label className="block text-sm font-semibold text-gray-900 mb-2">
-                What's your content about? *
+                Content Description <span className="text-red-500">*</span>
               </label>
-              <p className="text-xs text-gray-600 mb-3">
-                💡 Be descriptive! Better descriptions lead to better captions
-              </p>
               <div className="flex gap-2 mb-2">
                 <textarea
                   value={formData.content}
                   onChange={(e) => setFormData({ ...formData, content: e.target.value })}
                   className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:ring-0 transition-colors text-gray-900 placeholder-gray-400 min-h-[100px] resize-none"
-                  placeholder="e.g., Behind-the-scenes look at my creative process for making videos"
+                  placeholder="Describe what your post is about. Example: Behind-the-scenes look at my creative process for making videos, showing my setup and workflow"
                 />
               </div>
               <button
@@ -700,11 +694,8 @@ export default function SocialCaptionPage() {
             {/* Brand Voice Persona */}
             <div>
               <label className="block text-sm font-semibold text-gray-900 mb-2">
-                Brand Voice (optional)
+                Brand Voice (Optional)
               </label>
-              <p className="text-xs text-gray-600 mb-3">
-                🎭 Use a saved persona for consistent brand voice
-              </p>
               <select
                 value={formData.audiencePersonaId}
                 onChange={(e) => setFormData({ ...formData, audiencePersonaId: e.target.value })}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import DashboardLayout from '../components/DashboardLayout'
 import ThumbnailImageViewer from '../components/ThumbnailImageViewer'
-import { Image, Sparkles, Loader, Clock, Trash2, TrendingUp, RefreshCw, X, Check, ChevronDown, ChevronUp, Target, BarChart3, Lightbulb } from 'lucide-react'
+import { Image, Sparkles, Loader, Clock, Trash2, TrendingUp, RefreshCw, X, Check, ChevronDown, ChevronUp, Target, BarChart3, Lightbulb, Upload, XCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiPost } from '../services/api'
 import { apiUrl } from '../config'
@@ -147,8 +147,7 @@ interface HistoryItem {
 
 export default function ThumbnailGeneratorPage() {
   const [formData, setFormData] = useState({
-    videoTitle: '',
-    videoTopic: '',
+    thumbnailPrompt: '', // Combined field for title and description
     count: 1, // Fixed to 1 variant only
     style: 'bold',
     emotion: 'exciting',
@@ -164,7 +163,8 @@ export default function ThumbnailGeneratorPage() {
     optimize_for_mobile: true,
     include_arrow: false,
     include_circle: false,
-    target_platform: 'youtube'
+    target_platform: 'youtube',
+    image_model: 'gpt-image-1.5'  // Default: GPT-Image 1.5 (fastest with best text rendering)
   })
   const [templates, setTemplates] = useState<ThumbnailTemplate[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState<ThumbnailTemplate | null>(null)
@@ -179,6 +179,14 @@ export default function ThumbnailGeneratorPage() {
   const [showStyles, setShowStyles] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [selectedStylePreset, setSelectedStylePreset] = useState<string | null>(null)
+  const [uploadedImages, setUploadedImages] = useState<Array<{file: File, preview: string}>>([])
+
+  // Model display names
+  const MODEL_NAMES = {
+    'gpt-image-1.5': 'Smart Editor',
+    'dall-e-3': 'Creative Artist',
+    'imagen-3.0-generate-001': 'Photo Master'
+  }
 
   // Calculate quality score for thumbnails
   const calculateQualityScore = (template: ThumbnailTemplate): number => {
@@ -254,6 +262,54 @@ export default function ThumbnailGeneratorPage() {
     loadHistory()
   }, [])
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    // Check if user is using GPT-Image 1.5
+    if (formData.image_model !== 'gpt-image-1.5') {
+      toast.error('Image upload only supported for Smart Editor')
+      return
+    }
+
+    // Check max 2 images
+    if (uploadedImages.length + files.length > 2) {
+      toast.error('Maximum 2 images allowed')
+      return
+    }
+
+    const newImages = []
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast.error(`${file.name} is not an image`)
+        continue
+      }
+
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error(`${file.name} is too large (max 10MB)`)
+        continue
+      }
+
+      // Create preview
+      const preview = URL.createObjectURL(file)
+      newImages.push({ file, preview })
+    }
+
+    setUploadedImages([...uploadedImages, ...newImages].slice(0, 2))
+    toast.success(`${newImages.length} image(s) uploaded`)
+  }
+
+  const removeImage = (index: number) => {
+    const newImages = uploadedImages.filter((_, i) => i !== index)
+    URL.revokeObjectURL(uploadedImages[index].preview)
+    setUploadedImages(newImages)
+    toast.success('Image removed')
+  }
+
   const applyStylePreset = (styleId: string) => {
     const style = THUMBNAIL_STYLES.find(s => s.id === styleId)
     if (!style) return
@@ -271,21 +327,43 @@ export default function ThumbnailGeneratorPage() {
   }
 
   const handleGenerate = async () => {
-    if (!formData.videoTitle || !formData.videoTopic) {
-      toast.error('Please fill in all fields')
+    if (!formData.thumbnailPrompt.trim()) {
+      toast.error('Please enter a description for your thumbnail')
       return
     }
 
     setLoading(true)
 
     try {
+      // Convert uploaded images to base64 if present
+      let customImages: Array<{id: string, base64_data: string}> = []
+      if (uploadedImages.length > 0) {
+        toast.loading('Analyzing your uploaded images...', { id: 'image-analysis' })
+        customImages = await Promise.all(
+          uploadedImages.map(async (img, idx) => {
+            return new Promise<{id: string, base64_data: string}>((resolve) => {
+              const reader = new FileReader()
+              reader.onloadend = () => {
+                resolve({
+                  id: `uploaded_${idx}`,
+                  base64_data: reader.result as string
+                })
+              }
+              reader.readAsDataURL(img.file)
+            })
+          })
+        )
+        toast.success('Images analyzed! Generating thumbnail...', { id: 'image-analysis' })
+      }
+
       const requestBody = {
-        video_title: formData.videoTitle,
-        video_topic: formData.videoTopic,
+        thumbnail_prompt: formData.thumbnailPrompt,
         count: parseInt(formData.count.toString(), 10),
         style: formData.style,
-        ai_model: 'openai', // Hardcoded to use DALL-E
+        ai_model: 'openai', // Text model
+        image_model: formData.image_model, // Image generation model
         persona_id: null,
+        custom_images: customImages.length > 0 ? customImages : null,
         // Advanced parameters
         emotion: formData.emotion,
         include_face: formData.include_face,
@@ -319,7 +397,7 @@ export default function ThumbnailGeneratorPage() {
       generatedTemplates = generatedTemplates.map((t: any) => {
         const template = {
           id: t.id,
-          title: t.title || formData.videoTitle,
+          title: t.title || formData.thumbnailPrompt.substring(0, 50),
           image_url: t.image_url || '',
           base64_data: t.base64_data || '',
           prompt: t.prompt || '',
@@ -346,8 +424,8 @@ export default function ThumbnailGeneratorPage() {
       // Add to history
       const newHistoryItem: HistoryItem = {
         id: data.id?.toString() || Date.now().toString(),
-        title: formData.videoTitle || 'Untitled',
-        topic: formData.videoTopic || '',
+        title: formData.thumbnailPrompt.substring(0, 50) || 'Untitled',
+        topic: formData.thumbnailPrompt.substring(50, 150) || '',
         templates: generatedTemplates,
         timestamp: new Date()
       }
@@ -365,8 +443,7 @@ export default function ThumbnailGeneratorPage() {
 
   const loadFromHistory = (item: HistoryItem) => {
     setFormData({
-      videoTitle: item.title,
-      videoTopic: item.topic,
+      thumbnailPrompt: `${item.title}. ${item.topic}`,
       count: 1, // Fixed to 1 variant
       style: item.templates[0]?.style || 'bold',
       emotion: item.templates[0]?.emotion || 'exciting',
@@ -382,7 +459,8 @@ export default function ThumbnailGeneratorPage() {
       optimize_for_mobile: true,
       include_arrow: false,
       include_circle: false,
-      target_platform: 'youtube'
+      target_platform: 'youtube',
+      image_model: 'gpt-image-1.5'  // Default to GPT-Image 1.5 for history items
     })
     setTemplates(item.templates)
     if (item.templates.length > 0) {
@@ -406,13 +484,30 @@ export default function ThumbnailGeneratorPage() {
     setRefining(true)
 
     try {
+      // Convert uploaded images to base64 if present
+      const customImages = await Promise.all(
+        uploadedImages.map(async (img, idx) => {
+          return new Promise<{id: string, base64_data: string}>((resolve) => {
+            const reader = new FileReader()
+            reader.onloadend = () => {
+              resolve({
+                id: `uploaded_${idx}`,
+                base64_data: reader.result as string
+              })
+            }
+            reader.readAsDataURL(img.file)
+          })
+        })
+      )
+
       const requestBody = {
-        video_title: formData.videoTitle,
-        video_topic: formData.videoTopic,
+        thumbnail_prompt: formData.thumbnailPrompt,
         count: 1, // Only refine 1 image
         style: formData.style,
-        ai_model: 'openai', // Hardcoded to use DALL-E
+        ai_model: 'openai', // Text model
+        image_model: formData.image_model, // Image generation model
         persona_id: null,
+        custom_images: customImages.length > 0 ? customImages : null,
         // Pass all the same parameters
         emotion: formData.emotion,
         include_face: formData.include_face,
@@ -448,7 +543,7 @@ export default function ThumbnailGeneratorPage() {
       refinedTemplates = refinedTemplates.map((t: any) => {
         const template = {
           id: t.id,
-          title: t.title || formData.videoTitle,
+          title: t.title || formData.thumbnailPrompt.substring(0, 50),
           image_url: t.image_url || '',
           base64_data: t.base64_data || '',
           prompt: t.prompt || '',
@@ -669,40 +764,202 @@ export default function ThumbnailGeneratorPage() {
                 <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl mb-4 shadow-lg">
                   <Image className="w-7 h-7 text-white" />
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">Create Eye-Catching Thumbnails</h2>
-                <p className="text-gray-600 text-sm">Generate high-CTR thumbnail concepts with AI-powered optimization</p>
+                <h2 className="text-2xl font-bold text-gray-900">Create Eye-Catching Thumbnails</h2>
               </div>
 
-              {/* Video Title */}
-              <div>
+              {/* Image Model Selector */}
+              <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-4 rounded-xl border-2 border-purple-200 mb-6">
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Video Title *
+                  🎨 AI Model Selection
                 </label>
-                <p className="text-xs text-gray-600 mb-3">
-                  💡 Your actual video title - this will appear on the thumbnail
+                <select
+                  value={formData.image_model}
+                  onChange={(e) => {
+                    setFormData({ ...formData, image_model: e.target.value })
+                    // Clear uploaded images if switching away from GPT-Image 1.5
+                    if (e.target.value !== 'gpt-image-1.5' && uploadedImages.length > 0) {
+                      setUploadedImages([])
+                      toast('Images cleared - only Smart Editor supports uploads')
+                    }
+                  }}
+                  className="w-full px-4 py-3 border-2 border-purple-300 rounded-xl focus:border-purple-500 focus:ring-0 transition-colors text-gray-900 bg-white font-medium"
+                >
+                  <option value="gpt-image-1.5">⚡ Smart Editor - Best for text & image editing</option>
+                  <option value="dall-e-3">🎨 Creative Artist - Artistic & dreamy visuals</option>
+                  <option value="imagen-3.0-generate-001">📸 Photo Master - Photorealism & detail</option>
+                </select>
+
+                {/* Dynamic recommendations based on selected model */}
+                <div className="mt-3 p-3 bg-white rounded-lg border border-purple-200">
+                  {formData.image_model === 'gpt-image-1.5' && (
+                    <div className="text-xs space-y-2">
+                      <p className="font-semibold text-purple-900 flex items-center gap-2">
+                        ⚡ Smart Editor
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex items-start gap-1">
+                          <span className="text-green-600">✓</span>
+                          <span className="text-gray-700">Precise text rendering</span>
+                        </div>
+                        <div className="flex items-start gap-1">
+                          <span className="text-green-600">✓</span>
+                          <span className="text-gray-700">4x faster generation</span>
+                        </div>
+                        <div className="flex items-start gap-1">
+                          <span className="text-green-600">✓</span>
+                          <span className="text-gray-700">Image upload support</span>
+                        </div>
+                        <div className="flex items-start gap-1">
+                          <span className="text-green-600">✓</span>
+                          <span className="text-gray-700">Transparent backgrounds</span>
+                        </div>
+                        <div className="flex items-start gap-1">
+                          <span className="text-green-600">✓</span>
+                          <span className="text-gray-700">Natively multimodal</span>
+                        </div>
+                        <div className="flex items-start gap-1">
+                          <span className="text-blue-600">📐</span>
+                          <span className="text-gray-700">1536x1024 (3:2)</span>
+                        </div>
+                      </div>
+                      <p className="text-blue-700 font-medium mt-2">👆 Upload your images below to incorporate them!</p>
+                    </div>
+                  )}
+                  {formData.image_model === 'dall-e-3' && (
+                    <div className="text-xs space-y-2">
+                      <p className="font-semibold text-purple-900">🎨 Creative Artist</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex items-start gap-1">
+                          <span className="text-green-600">✓</span>
+                          <span className="text-gray-700">Artistic & dreamy</span>
+                        </div>
+                        <div className="flex items-start gap-1">
+                          <span className="text-green-600">✓</span>
+                          <span className="text-gray-700">Creative interpretation</span>
+                        </div>
+                        <div className="flex items-start gap-1">
+                          <span className="text-green-600">✓</span>
+                          <span className="text-gray-700">Vibrant colors</span>
+                        </div>
+                        <div className="flex items-start gap-1">
+                          <span className="text-green-600">✓</span>
+                          <span className="text-gray-700">Dramatic effects</span>
+                        </div>
+                        <div className="flex items-start gap-1">
+                          <span className="text-red-600">✗</span>
+                          <span className="text-gray-500">No image upload</span>
+                        </div>
+                        <div className="flex items-start gap-1">
+                          <span className="text-blue-600">📐</span>
+                          <span className="text-gray-700">1792x1024 (16:9)</span>
+                        </div>
+                      </div>
+                      <p className="text-green-700 font-medium mt-2">✨ Best for stylized, eye-catching designs</p>
+                    </div>
+                  )}
+                  {formData.image_model === 'imagen-3.0-generate-001' && (
+                    <div className="text-xs space-y-2">
+                      <p className="font-semibold text-purple-900">📸 Photo Master</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex items-start gap-1">
+                          <span className="text-green-600">✓</span>
+                          <span className="text-gray-700">Photorealistic</span>
+                        </div>
+                        <div className="flex items-start gap-1">
+                          <span className="text-green-600">✓</span>
+                          <span className="text-gray-700">High fidelity detail</span>
+                        </div>
+                        <div className="flex items-start gap-1">
+                          <span className="text-green-600">✓</span>
+                          <span className="text-gray-700">Realistic lighting</span>
+                        </div>
+                        <div className="flex items-start gap-1">
+                          <span className="text-green-600">✓</span>
+                          <span className="text-gray-700">Natural textures</span>
+                        </div>
+                        <div className="flex items-start gap-1">
+                          <span className="text-red-600">✗</span>
+                          <span className="text-gray-500">No image upload</span>
+                        </div>
+                        <div className="flex items-start gap-1">
+                          <span className="text-blue-600">📐</span>
+                          <span className="text-gray-700">Flexible ratio</span>
+                        </div>
+                      </div>
+                      <p className="text-green-700 font-medium mt-2">📸 Best for realistic, professional look</p>
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-xs text-gray-600 mt-3 text-center font-medium">
+                  💡 <strong>With images?</strong> Smart Editor | <strong>Artistic?</strong> Creative Artist | <strong>Realistic?</strong> Photo Master
                 </p>
-                <input
-                  type="text"
-                  value={formData.videoTitle}
-                  onChange={(e) => setFormData({ ...formData, videoTitle: e.target.value })}
-                  placeholder="e.g., I Tested 100 Productivity Apps - Here's The BEST One"
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-0 transition-colors text-gray-900 placeholder-gray-400"
-                />
               </div>
 
-              {/* Video Topic */}
+              {/* Image Upload Section - Only for GPT-Image 1.5 */}
+              {formData.image_model === 'gpt-image-1.5' && (
+                <div className="bg-blue-50 p-4 rounded-xl border-2 border-blue-200 mb-6">
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    Upload Images (Optional - Max 2)
+                  </label>
+
+                  {/* Upload Button */}
+                  {uploadedImages.length < 2 && (
+                    <label className="flex items-center justify-center gap-2 px-4 py-3 bg-white border-2 border-blue-300 border-dashed rounded-lg cursor-pointer hover:bg-blue-50 transition-colors">
+                      <Upload className="w-5 h-5 text-blue-600" />
+                      <span className="text-sm font-medium text-blue-900">
+                        Click to upload image ({uploadedImages.length}/2)
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleImageUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+
+                  {/* Uploaded Images Preview */}
+                  {uploadedImages.length > 0 && (
+                    <div className="mt-3 grid grid-cols-2 gap-3">
+                      {uploadedImages.map((img, idx) => (
+                        <div key={idx} className="relative group">
+                          <img
+                            src={img.preview}
+                            alt={`Upload ${idx + 1}`}
+                            className="w-full h-32 object-cover rounded-lg border-2 border-blue-200"
+                          />
+                          <button
+                            onClick={() => removeImage(idx)}
+                            className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <XCircle className="w-4 h-4" />
+                          </button>
+                          <div className="absolute bottom-2 left-2 px-2 py-1 bg-black bg-opacity-70 text-white text-xs rounded">
+                            Image {idx + 1}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <p className="text-xs text-blue-700 mt-2">
+                    💡 Uploaded images will be intelligently incorporated into your thumbnail design
+                  </p>
+                </div>
+              )}
+
+              {/* Thumbnail Description */}
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Video Topic/Description *
+                  Thumbnail Description <span className="text-red-500">*</span>
                 </label>
-                <p className="text-xs text-gray-600 mb-3">
-                  📝 Describe what your video is about for better thumbnail concepts
-                </p>
                 <textarea
-                  value={formData.videoTopic}
-                  onChange={(e) => setFormData({ ...formData, videoTopic: e.target.value })}
-                  placeholder="e.g., Testing and reviewing 100 different productivity apps to find the absolute best one for different use cases"
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-0 transition-colors text-gray-900 placeholder-gray-400 min-h-[80px] resize-none"
+                  value={formData.thumbnailPrompt}
+                  onChange={(e) => setFormData({ ...formData, thumbnailPrompt: e.target.value })}
+                  placeholder="Describe your video and the text for the thumbnail. Example: Video about testing 100 productivity apps. Title text: 'I Tested 100 Apps - Here's The BEST One'. Show excited person with laptop and app icons."
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-0 transition-colors text-gray-900 placeholder-gray-400 min-h-[120px] resize-y"
                 />
               </div>
 

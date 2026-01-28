@@ -1274,28 +1274,22 @@ export default function ScriptGeneratorPage() {
             {/* Video Topic */}
             <div>
               <label className="block text-sm font-semibold text-gray-900 mb-2">
-                What's your video about? *
+                Video Topic <span className="text-red-500">*</span>
               </label>
-              <p className="text-xs text-gray-600 mb-3">
-                💡 Be specific! Better topics lead to better scripts (e.g., "5 Editing Tricks" vs "Video Tips")
-              </p>
               <input
                 type="text"
                 value={formData.topic}
                 onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-0 transition-colors text-gray-900 placeholder-gray-400"
-                placeholder="e.g., How to Start a YouTube Channel in 2026"
+                placeholder="e.g., How to Start a YouTube Channel in 2026 - Complete Beginner's Guide"
               />
             </div>
 
             {/* Template Selector - Compact Dropdown */}
             <div>
               <label className="block text-sm font-semibold text-gray-900 mb-2">
-                Choose a Template (Optional)
+                Script Template (Optional)
               </label>
-              <p className="text-xs text-gray-600 mb-3">
-                📝 Templates provide proven structures that maximize engagement - or start from scratch
-              </p>
               <select
                 value={selectedTemplate?.id || ''}
                 onChange={(e) => {
@@ -1329,9 +1323,6 @@ export default function ScriptGeneratorPage() {
               <label className="block text-sm font-semibold text-gray-900 mb-2">
                 Video Duration
               </label>
-              <p className="text-xs text-gray-600 mb-3">
-                📏 Set your target video length - the script will be optimized for this duration
-              </p>
               <div className="text-center mb-2">
                 <span className="text-2xl font-bold text-indigo-600">
                   {formData.duration < 1 ? `${Math.round(formData.duration * 60)}s` : `${formData.duration}m`}
@@ -1359,11 +1350,8 @@ export default function ScriptGeneratorPage() {
             {/* Target Audience */}
             <div>
               <label className="block text-sm font-semibold text-gray-900 mb-2">
-                Who's your target audience? *
+                Target Audience <span className="text-red-500">*</span>
               </label>
-              <p className="text-xs text-gray-600 mb-3">
-                🎯 Define your viewer - use a saved persona or describe them manually
-              </p>
               <select
                 value={formData.audiencePersonaId || 'custom'}
                 onChange={(e) => {
@@ -1415,11 +1403,8 @@ export default function ScriptGeneratorPage() {
             {/* Script Tone */}
             <div>
               <label className="block text-sm font-semibold text-gray-900 mb-2">
-                Script Tone & Style
+                Tone & Style
               </label>
-              <p className="text-xs text-gray-600 mb-3">
-                🎭 Choose your delivery style - use a saved persona or select a preset tone
-              </p>
               <select
                 value={formData.scriptPersonaId || formData.tone || 'preset'}
                 onChange={(e) => {
@@ -1479,11 +1464,8 @@ export default function ScriptGeneratorPage() {
 
             <div>
               <label className="block text-sm font-semibold text-gray-900 mb-2">
-                Script Flow (optional)
+                Script Flow (Optional)
               </label>
-              <p className="text-xs text-gray-600 mb-3">
-                🎬 Choose how your script's story unfolds - the structure guides pacing and engagement
-              </p>
               <select
                 value={formData.scriptFlow}
                 onChange={(e) => setFormData({ ...formData, scriptFlow: e.target.value })}
@@ -1509,11 +1491,8 @@ export default function ScriptGeneratorPage() {
 
             <div>
               <label className="block text-sm font-semibold text-gray-900 mb-2">
-                Content Style (optional)
+                Content Style (Optional)
               </label>
-              <p className="text-xs text-gray-600 mb-3">
-                🎥 Select the overall presentation format - matches different video types and platforms
-              </p>
               <select
                 value={formData.style}
                 onChange={(e) => setFormData({ ...formData, style: e.target.value })}
